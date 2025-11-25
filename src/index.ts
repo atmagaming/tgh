@@ -1,4 +1,4 @@
-import { Bot, type Update } from "grammy";
+import { Bot } from "grammy";
 import { ClaudeAssistant } from "./claude-assistant";
 
 const botToken = process.env.TELEGRAM_BOT_TOKEN;
@@ -39,7 +39,7 @@ Bun.serve({
 
     if (url.pathname === "/webhook" && req.method === "POST") {
       try {
-        const update = await req.json() as Update;
+        const update = await req.json();
         await bot.handleUpdate(update);
         return new Response("OK", { status: 200 });
       } catch (error) {
