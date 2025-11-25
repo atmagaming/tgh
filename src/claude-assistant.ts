@@ -1,18 +1,13 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { $ } from "bun";
 
 export class ClaudeAssistant {
-  private readonly client = new Anthropic({ apiKey: this.apiKey });
-
-  constructor(private readonly apiKey: string) {}
-
   async processMessage(userMessage: string): Promise<string> {
-    const response = await this.client.messages.create({
-      model: "claude-3-5-sonnet-20241022",
-      max_tokens: 1024,
-      messages: [{ role: "user", content: userMessage }],
-    });
-
-    const firstBlock = response.content[0];
-    return firstBlock?.type === "text" ? firstBlock.text : "I couldn't process that request.";
+    try {
+      const result = await $`claude -p ${userMessage}`.text();
+      return result.trim();
+    } catch (error) {
+      console.error("Claude CLI error:", error);
+      throw new Error("Failed to process message with Claude CLI");
+    }
   }
 }
