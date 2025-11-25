@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: tgh-bot
+    runtime: docker
+    repo: https://github.com/elumixor/tgh
+    branch: main
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+    plan: free
