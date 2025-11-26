@@ -10,6 +10,7 @@
     "format": "biome format --write ."
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.71.0",
     "grammy": "^1.35.0"
   },
   "devDependencies": {
