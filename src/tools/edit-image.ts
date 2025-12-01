@@ -77,12 +77,17 @@ async function handleGeminiEditing(
     });
     const imageBuffer = geminiClient.base64ToBuffer(base64Image);
 
-    await ctx.api.sendPhoto(chatId, new InputFile(imageBuffer, "edited.png"), {
-      caption: `Edited: "${params.prompt}"`,
-      reply_parameters: { message_id: messageId },
-    });
+    await ctx.replyWithChatAction("upload_document");
 
-    await ctx.api.editMessageText(chatId, messageId, "✅ Image edited successfully!");
+    try {
+      await ctx.api.deleteMessage(chatId, messageId);
+    } catch (error) {
+      console.error("Failed to delete progress message:", error);
+    }
+
+    await ctx.api.sendDocument(chatId, new InputFile(imageBuffer, "edited.png"), { caption: "Edited image" });
+
+    await ctx.api.sendMessage(chatId, `✅ Image edited\nPrompt: "${params.prompt}"`);
   } catch (error) {
     console.error("Gemini editing error:", error);
     await ctx.api.editMessageText(

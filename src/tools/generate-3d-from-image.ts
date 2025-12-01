@@ -65,31 +65,36 @@ async function handleMeshy3DGeneration(taskId: string, ctx: Context, messageId: 
       return;
     }
 
-    await ctx.api.editMessageText(chatId, messageId, "✅ 3D model generated successfully!\nDownloading files...");
+    await ctx.replyWithChatAction("upload_document");
 
     try {
+      await ctx.api.deleteMessage(chatId, messageId);
+    } catch (error) {
+      console.error("Failed to delete progress message:", error);
+    }
+
+    try {
+      const files: string[] = [];
+
       if (glbUrl) {
         const glbData = await meshyClient.downloadFile(glbUrl);
-        await ctx.api.sendDocument(chatId, new InputFile(glbData, "model.glb"), {
-          caption: "GLB Model",
-          reply_parameters: { message_id: messageId },
-        });
+        await ctx.api.sendDocument(chatId, new InputFile(glbData, "model.glb"), { caption: "GLB Model" });
+        files.push("GLB");
+
+        if (fbxUrl) await ctx.replyWithChatAction("upload_document");
       }
 
       if (fbxUrl) {
         const fbxData = await meshyClient.downloadFile(fbxUrl);
-        await ctx.api.sendDocument(chatId, new InputFile(fbxData, "model.fbx"), {
-          caption: "FBX Model",
-          reply_parameters: { message_id: messageId },
-        });
+        await ctx.api.sendDocument(chatId, new InputFile(fbxData, "model.fbx"), { caption: "FBX Model" });
+        files.push("FBX");
       }
 
-      await ctx.api.editMessageText(chatId, messageId, "✅ 3D model generated and files sent!");
+      await ctx.api.sendMessage(chatId, `✅ 3D model generated successfully!\nFormats: ${files.join(", ")}`);
     } catch (error) {
       console.error("Error sending files:", error);
-      await ctx.api.editMessageText(
+      await ctx.api.sendMessage(
         chatId,
-        messageId,
         `✅ 3D model generated!\n\nDownload links:\n${glbUrl ? `GLB: ${glbUrl}\n` : ""}${fbxUrl ? `FBX: ${fbxUrl}` : ""}`,
       );
     }

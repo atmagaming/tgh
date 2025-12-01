@@ -78,27 +78,29 @@ async function handleGeminiGeneration(
       personGeneration: params.personGeneration as PersonGeneration.ALLOW_ALL,
     });
 
-    // Send all generated images
+    await ctx.replyWithChatAction("upload_document");
+
+    try {
+      await ctx.api.deleteMessage(chatId, messageId);
+    } catch (error) {
+      console.error("Failed to delete progress message:", error);
+    }
+
     for (let i = 0; i < base64Images.length; i++) {
       const image = base64Images[i];
       if (!image) continue;
 
       const imageBuffer = geminiClient.base64ToBuffer(image);
-      const caption =
-        base64Images.length > 1
-          ? `Variation ${i + 1}/${base64Images.length}: "${params.prompt}"`
-          : `Generated: "${params.prompt}"`;
+      const caption = base64Images.length > 1 ? `Variation ${i + 1}/${base64Images.length}` : "Generated image";
 
-      await ctx.api.sendPhoto(chatId, new InputFile(imageBuffer, `generated-${i + 1}.png`), {
-        caption,
-        reply_parameters: { message_id: messageId },
-      });
+      await ctx.api.sendDocument(chatId, new InputFile(imageBuffer, `generated-${i + 1}.png`), { caption });
+
+      if (i < base64Images.length - 1) await ctx.replyWithChatAction("upload_document");
     }
 
-    await ctx.api.editMessageText(
+    await ctx.api.sendMessage(
       chatId,
-      messageId,
-      `✅ Generated ${base64Images.length} image${base64Images.length > 1 ? "s" : ""} successfully!`,
+      `✅ Generated ${base64Images.length} image${base64Images.length > 1 ? "s" : ""}\nPrompt: "${params.prompt}"`,
     );
   } catch (error) {
     console.error("Gemini generation error:", error);
