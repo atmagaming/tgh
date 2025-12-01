@@ -1,14 +1,19 @@
 import { Bot } from "grammy";
 import { claude } from "./claude-assistant";
 import { env } from "./env";
+import { isBotMentioned } from "./utils/mention-parser";
 
 export class App {
   readonly bot = new Bot(env.TELEGRAM_BOT_TOKEN);
+  private botUsername?: string;
+  private botUserId?: number;
 
   constructor() {
     this.bot.api.getMe().then((me) => {
+      this.botUsername = me.username;
+      this.botUserId = me.id;
       claude.botName = me.username;
-      console.log(`Bot username: @${me.username}`);
+      console.log(`Bot username: @${me.username}, ID: ${me.id}`);
     });
 
     this.bot.on("message", async (ctx) => {
@@ -17,10 +22,7 @@ export class App {
       if (isGroupChat) {
         if (ctx.chat?.id !== env.ALLOWED_CHAT_ID) return;
 
-        const entities = [...(ctx.message.entities || []), ...(ctx.message.caption_entities || [])];
-        const hasMention = entities.some((entity) => entity.type === "mention" || entity.type === "text_mention");
-
-        if (!hasMention) return;
+        if (!isBotMentioned(ctx.message, this.botUsername, this.botUserId)) return;
 
         console.log("Received mention in group from:", ctx.from?.username, "ID:", ctx.from?.id);
       } else {
