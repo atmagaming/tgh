@@ -22,32 +22,31 @@ interface GeminiImagePart {
 }
 
 export class GeminiClient {
-  private client: GoogleGenAI;
-  private model = "imagen-3.0-generate-002";
-
-  constructor(apiKey?: string) {
-    if (!apiKey && !env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is required");
-    this.client = new GoogleGenAI({ apiKey: apiKey || env.GEMINI_API_KEY });
-  }
+  private readonly client = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
+  private readonly model = "gemini-2.5-flash-image";
 
   async generateImage(params: GenerateImageParams): Promise<string[]> {
-    const response = await this.client.models.generateImages({
-      model: this.model,
-      prompt: params.prompt,
-      config: {
-        aspectRatio: params.aspectRatio || "1:1",
-        numberOfImages: params.numberOfImages || 1,
-        ...(params.personGeneration && {
-          personGeneration: params.personGeneration,
-        }),
-      },
-    });
-
+    const numberOfImages = params.numberOfImages || 1;
     const images: string[] = [];
 
-    if (response.generatedImages) {
-      for (const img of response.generatedImages) {
-        if (img.image?.imageBytes) images.push(img.image.imageBytes);
+    for (let i = 0; i < numberOfImages; i++) {
+      const config: Record<string, unknown> = {
+        responseModalities: ["IMAGE"],
+      };
+
+      if (params.aspectRatio) config.imageConfig = { aspectRatio: params.aspectRatio };
+      if (params.personGeneration) config.personGeneration = params.personGeneration;
+
+      const response = await this.client.models.generateContent({
+        model: this.model,
+        contents: [{ text: params.prompt }],
+        config,
+      });
+
+      if (response.candidates?.[0]?.content?.parts) {
+        for (const part of response.candidates[0].content.parts) {
+          if (part.inlineData?.data) images.push(part.inlineData.data);
+        }
       }
     }
 
@@ -108,3 +107,5 @@ export class GeminiClient {
     return Buffer.from(base64, "base64");
   }
 }
+
+export const geminiClient = new GeminiClient();

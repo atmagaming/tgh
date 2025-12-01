@@ -26,3 +26,23 @@ bun run format       # Format with Biome
 3. For long operations: Return immediately, handle async updates via Telegram context passed to `executeTool()`
 
 - Never run dev in background - ALWAYS ask user to do so. But firstly, check if the process is already running. That is, do this ONLY if you actually require to run the bot. If you just need to test some functionality - write unit tests and run them.
+
+- Never split declaration and initialization if it is simple. DON'T do:
+
+```typescript
+class Example {
+  private readonly field: Field;
+
+  constructor() {
+    this.field = new Field();
+  }
+}
+```
+
+Instead, do:
+
+```typescript
+class Example {
+  private readonly field = new Field();
+}
+```

@@ -109,3 +109,5 @@ export class MeshyClient {
     return new Uint8Array(await response.arrayBuffer());
   }
 }
+
+export const meshyClient = new MeshyClient();

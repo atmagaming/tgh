@@ -1,6 +1,6 @@
 import type { PersonGeneration } from "@google/genai";
 import { type Context, InputFile } from "grammy";
-import { GeminiClient } from "../gemini";
+import { geminiClient } from "../gemini";
 import type { Tool } from "./types";
 
 export const generateImageTool: Tool = {
@@ -61,7 +61,6 @@ async function handleGeminiGeneration(
   ctx: Context,
   messageId: number,
 ) {
-  const geminiClient = new GeminiClient();
   const chatId = ctx.chat?.id ?? 0;
 
   try {

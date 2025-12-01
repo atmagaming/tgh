@@ -1,16 +1,16 @@
 import { webhookCallback } from "grammy";
-import { bot } from "./bot";
+import { App } from "./app";
 import { env } from "./env";
 
-if (env.BOT_MODE === "webhook") {
-  if (!env.WEBHOOK_URL) {
-    throw new Error("WEBHOOK_URL is required for webhook mode");
-  }
+const app = new App();
 
-  await bot.api.setWebhook(`${env.WEBHOOK_URL}/webhook`);
+if (env.BOT_MODE === "webhook") {
+  if (!env.WEBHOOK_URL) throw new Error("WEBHOOK_URL is required for webhook mode");
+
+  await app.bot.api.setWebhook(`${env.WEBHOOK_URL}/webhook`);
   console.log(`Webhook set to: ${env.WEBHOOK_URL}/webhook`);
 
-  const handleWebhook = webhookCallback(bot, "std/http");
+  const handleWebhook = webhookCallback(app.bot, "std/http");
 
   Bun.serve({
     port: env.PORT,
@@ -25,7 +25,7 @@ if (env.BOT_MODE === "webhook") {
   console.log(`Bot server started on port ${env.PORT}`);
 } else {
   console.log("Polling mode: starting bot...");
-  await bot.api.deleteWebhook();
-  bot.start();
+  await app.bot.api.deleteWebhook();
+  app.bot.start();
   console.log("Bot is running in polling mode");
 }

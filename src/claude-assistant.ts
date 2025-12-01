@@ -1,22 +1,15 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { Context } from "grammy";
 import { env } from "./env";
-import { executeTool, tools, type ToolContext } from "./tools";
+import { executeTool, type ToolContext, tools } from "./tools";
 
 export class ClaudeAssistant {
-  private client: Anthropic;
-  private botUsername?: string;
+  botName?: string;
 
-  constructor() {
-    this.client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
-  }
-
-  setBotUsername(username: string) {
-    this.botUsername = username;
-  }
+  private readonly client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
 
   async processMessage(userMessage: string, telegramCtx?: Context): Promise<string> {
-    const systemPrompt = `You are @${this.botUsername || "bot"}, a Telegram bot assistant.
+    const systemPrompt = `You are @${this.botName || "bot"}, a Telegram bot assistant.
 
 Response style:
 - Short, concise, minimal
@@ -58,9 +51,7 @@ Response style:
         }
 
         const toolContext: ToolContext | undefined =
-          telegramCtx && botReplyMessageId
-            ? { telegramCtx, messageId: botReplyMessageId }
-            : undefined;
+          telegramCtx && botReplyMessageId ? { telegramCtx, messageId: botReplyMessageId } : undefined;
 
         const toolResult = await executeTool(toolUse.name, toolUse.input as Record<string, unknown>, toolContext);
 
@@ -109,3 +100,5 @@ Response style:
     }
   }
 }
+
+export const claude = new ClaudeAssistant();
