@@ -12,6 +12,9 @@ export class GramJSClient {
     this.client = new TelegramClient(session, env.TELEGRAM_API_ID, env.TELEGRAM_API_HASH, {
       connectionRetries: 5,
     });
+
+    // Set GramJS logging to error level only
+    this.client.setLogLevel("error" as any);
   }
 
   async connect(): Promise<void> {
