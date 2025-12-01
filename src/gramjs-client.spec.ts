@@ -24,13 +24,14 @@ describe.skipIf(!process.env.RUN_MANUAL_TESTS)("GramJSClient (manual)", () => {
   test(
     "should search for messages with a common keyword",
     async () => {
+      const query = "cat";
       const results = await client.searchMessages({
-        query: "test",
+        query,
         limit: 5,
       });
 
       expect(results).toBeArray();
-      console.log(`Found ${results.length} messages for "test"`);
+      console.log(`Found ${results.length} messages for "${query}"`);
 
       for (const msg of results) {
         expect(msg.id).toBeNumber();

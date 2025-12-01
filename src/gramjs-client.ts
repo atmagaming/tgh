@@ -1,4 +1,5 @@
 import { TelegramClient } from "telegram";
+import { Logger } from "telegram/extensions/Logger";
 import { StringSession } from "telegram/sessions";
 import { env } from "./env";
 import { logger } from "./logger";
@@ -11,10 +12,12 @@ export class GramJSClient {
     const session = new StringSession(env.TELEGRAM_SESSION);
     this.client = new TelegramClient(session, env.TELEGRAM_API_ID, env.TELEGRAM_API_HASH, {
       connectionRetries: 5,
+      baseLogger: new (class extends Logger {
+        override log() {
+          return;
+        }
+      })(),
     });
-
-    // Set GramJS logging to error level only
-    this.client.setLogLevel("error" as any);
   }
 
   async connect(): Promise<void> {
