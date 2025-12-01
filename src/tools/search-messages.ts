@@ -44,6 +44,7 @@ export const searchMessagesTool: Tool = {
         success: true,
         query,
         results: results.map((msg) => ({
+          id: msg.id,
           text: msg.text,
           date: msg.date.toISOString(),
         })),

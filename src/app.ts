@@ -33,6 +33,18 @@ export class App {
       await ctx.replyWithChatAction("typing");
 
       try {
+        logger.info(
+          {
+            messageId: ctx.message.message_id,
+            text: ctx.message.text || ctx.message.caption,
+            hasPhoto: !!ctx.message.photo,
+            replyToMessageId: ctx.message.reply_to_message?.message_id,
+            replyToText: ctx.message.reply_to_message?.text || ctx.message.reply_to_message?.caption,
+            replyToHasPhoto: !!ctx.message.reply_to_message?.photo,
+          },
+          "Processing incoming message",
+        );
+
         let userMessage = "";
         const imageUrls: string[] = [];
 
@@ -48,12 +60,17 @@ export class App {
           }
         }
 
-        if (ctx.message.reply_to_message?.photo) {
-          const photo = ctx.message.reply_to_message.photo.at(-1);
-          if (photo) {
-            const fileLink = await ctx.api.getFile(photo.file_id);
-            const imageUrl = `https://api.telegram.org/file/bot${env.TELEGRAM_BOT_TOKEN}/${fileLink.file_path}`;
-            imageUrls.push(imageUrl);
+        if (ctx.message.reply_to_message) {
+          const replyText = ctx.message.reply_to_message.text || ctx.message.reply_to_message.caption;
+          if (replyText) userMessage = `${userMessage}\n\nReplied-to message: "${replyText}"`;
+
+          if (ctx.message.reply_to_message.photo) {
+            const photo = ctx.message.reply_to_message.photo.at(-1);
+            if (photo) {
+              const fileLink = await ctx.api.getFile(photo.file_id);
+              const imageUrl = `https://api.telegram.org/file/bot${env.TELEGRAM_BOT_TOKEN}/${fileLink.file_path}`;
+              imageUrls.push(imageUrl);
+            }
           }
         }
 

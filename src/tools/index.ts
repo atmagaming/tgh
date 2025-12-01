@@ -3,10 +3,21 @@ import { logger } from "../logger";
 import { editImageTool } from "./edit-image";
 import { generate3DFromImageTool } from "./generate-3d-from-image";
 import { generateImageTool } from "./generate-image";
+import { getChatInfoTool } from "./get-chat-info";
+import { getMessageHistoryTool } from "./get-message-history";
+import { getMessageMentionsTool } from "./get-message-mentions";
 import { searchMessagesTool } from "./search-messages";
 import type { Tool, ToolContext } from "./types";
 
-const allTools: Tool[] = [generate3DFromImageTool, generateImageTool, editImageTool, searchMessagesTool];
+const allTools: Tool[] = [
+  generate3DFromImageTool,
+  generateImageTool,
+  editImageTool,
+  searchMessagesTool,
+  getMessageMentionsTool,
+  getMessageHistoryTool,
+  getChatInfoTool,
+];
 
 export const tools: Anthropic.Tool[] = allTools.map((tool) => tool.definition);
 

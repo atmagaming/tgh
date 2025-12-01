@@ -18,7 +18,12 @@ export class ClaudeAssistant {
   private readonly client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
 
   async processMessage(userMessage: string, telegramCtx?: Context): Promise<string> {
-    const systemPrompt = `You are @${this.botName || "bot"}, a Telegram bot assistant.
+    const systemPrompt = `You are @${this.botName || "bot"}, a Telegram bot assistant that responds to chat messages.
+
+Context awareness:
+- You operate in Telegram chats (private or group conversations)
+- When users refer to "this message" or similar phrases, they typically mean a message they have replied to
+- Message replies provide important context for understanding user requests
 
 Response style:
 - Short, concise, minimal
@@ -42,8 +47,8 @@ Response style:
       const toolLogs: ToolExecutionLog[] = [];
 
       while (response.stop_reason === "tool_use") {
-        const toolUse = response.content.find((block) => block.type === "tool_use");
-        if (!toolUse || toolUse.type !== "tool_use") break;
+        const toolUses = response.content.filter((block) => block.type === "tool_use");
+        if (toolUses.length === 0) break;
 
         if (!botReplyMessageId && telegramCtx) {
           const sentMessage = await telegramCtx.reply("Processing...", {
@@ -52,33 +57,50 @@ Response style:
           botReplyMessageId = sentMessage.message_id;
         }
 
-        const toolLog: ToolExecutionLog = {
-          toolName: toolUse.name,
-          input: toolUse.input as Record<string, unknown>,
-          status: "running",
-        };
-        toolLogs.push(toolLog);
+        const toolResults: Anthropic.ToolResultBlockParam[] = [];
 
-        if (telegramCtx && botReplyMessageId) await this.updateTempMessage(telegramCtx, botReplyMessageId, toolLogs);
+        for (const toolUse of toolUses) {
+          if (toolUse.type !== "tool_use") continue;
 
-        const toolContext: ToolContext | undefined =
-          telegramCtx && botReplyMessageId ? { telegramCtx, messageId: botReplyMessageId } : undefined;
+          const toolLog: ToolExecutionLog = {
+            toolName: toolUse.name,
+            input: toolUse.input as Record<string, unknown>,
+            status: "running",
+          };
+          toolLogs.push(toolLog);
 
-        try {
-          const toolResult = await executeTool(toolUse.name, toolUse.input as Record<string, unknown>, toolContext);
-          toolLog.status = "completed";
-          toolLog.result = toolResult;
-        } catch (error) {
-          toolLog.status = "error";
-          toolLog.result = error instanceof Error ? error.message : "Unknown error";
+          if (telegramCtx && botReplyMessageId) await this.updateTempMessage(telegramCtx, botReplyMessageId, toolLogs);
+
+          const toolContext: ToolContext | undefined =
+            telegramCtx && botReplyMessageId ? { telegramCtx, messageId: botReplyMessageId } : undefined;
+
+          try {
+            const toolResult = await executeTool(toolUse.name, toolUse.input as Record<string, unknown>, toolContext);
+            toolLog.status = "completed";
+            toolLog.result = toolResult;
+            toolResults.push({
+              type: "tool_result",
+              tool_use_id: toolUse.id,
+              content: JSON.stringify(toolResult),
+            });
+          } catch (error) {
+            toolLog.status = "error";
+            toolLog.result = error instanceof Error ? error.message : "Unknown error";
+            toolResults.push({
+              type: "tool_result",
+              tool_use_id: toolUse.id,
+              content: JSON.stringify({ error: toolLog.result }),
+              is_error: true,
+            });
+          }
+
+          if (telegramCtx && botReplyMessageId) await this.updateTempMessage(telegramCtx, botReplyMessageId, toolLogs);
         }
-
-        if (telegramCtx && botReplyMessageId) await this.updateTempMessage(telegramCtx, botReplyMessageId, toolLogs);
 
         messages.push({ role: "assistant", content: response.content });
         messages.push({
           role: "user",
-          content: [{ type: "tool_result", tool_use_id: toolUse.id, content: JSON.stringify(toolLog.result) }],
+          content: toolResults,
         });
 
         response = await this.client.messages.create({
