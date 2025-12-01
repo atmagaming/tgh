@@ -22,6 +22,7 @@ const envSchema = z.object({
   TELEGRAM_API_ID: z.coerce.number(),
   TELEGRAM_API_HASH: z.string().min(1, "TELEGRAM_API_HASH is required"),
   TELEGRAM_SESSION: z.string().min(1, "TELEGRAM_SESSION is required"),
+  TELEGRAM_SESSION_LOCAL: z.string().optional(),
   TELEGRAM_PHONE_NUMBER: z.string().min(1, "TELEGRAM_PHONE_NUMBER is required"),
 });
 

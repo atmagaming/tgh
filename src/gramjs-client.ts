@@ -9,7 +9,8 @@ export class GramJSClient {
   private initialized = false;
 
   constructor() {
-    const session = new StringSession(env.TELEGRAM_SESSION);
+    const sessionString = env.TELEGRAM_SESSION_LOCAL ?? env.TELEGRAM_SESSION;
+    const session = new StringSession(sessionString);
     this.client = new TelegramClient(session, env.TELEGRAM_API_ID, env.TELEGRAM_API_HASH, {
       connectionRetries: 5,
       baseLogger: new (class extends Logger {

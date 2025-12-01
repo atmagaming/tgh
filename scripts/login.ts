@@ -52,23 +52,23 @@ async function main() {
 
   // Update .env file
   const envContent = fs.readFileSync(envPath, "utf-8");
-  const sessionLine = `TELEGRAM_SESSION="${sessionString}"`;
+  const sessionLine = `TELEGRAM_SESSION_LOCAL="${sessionString}"`;
   const lines = envContent.split("\n");
-  const sessionIndex = lines.findIndex((line: string) => line.startsWith("TELEGRAM_SESSION="));
+  const sessionIndex = lines.findIndex((line: string) => line.startsWith("TELEGRAM_SESSION_LOCAL="));
 
   if (sessionIndex !== -1) {
     lines[sessionIndex] = sessionLine;
-    console.log("Replaced existing TELEGRAM_SESSION in .env");
+    console.log("Replaced existing TELEGRAM_SESSION_LOCAL in .env");
   } else {
     lines.push(sessionLine);
-    console.log("Added TELEGRAM_SESSION to .env");
+    console.log("Added TELEGRAM_SESSION_LOCAL to .env");
   }
 
   fs.writeFileSync(envPath, lines.join("\n"));
 
   await client.disconnect();
   rl.close();
-  console.log("\n✅ Session saved to .env");
+  console.log("\n✅ Session saved to .env as TELEGRAM_SESSION_LOCAL");
 }
 
 main().catch(console.error);
