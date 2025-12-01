@@ -1,34 +1,45 @@
 import { Bot } from "grammy";
+import type { PhotoSize } from "grammy/types";
 import { claude } from "./claude-assistant";
 import { env } from "./env";
 import { logger } from "./logger";
 import { isBotMentioned } from "./utils/mention-parser";
 
+const formatError = (error: unknown): string => (error instanceof Error ? error.message : String(error));
+
+async function getPhotoUrl(fileId: string, bot: Bot): Promise<string> {
+  const fileLink = await bot.api.getFile(fileId);
+  return `https://api.telegram.org/file/bot${env.TELEGRAM_BOT_TOKEN}/${fileLink.file_path}`;
+}
+
 export class App {
   readonly bot = new Bot(env.TELEGRAM_BOT_TOKEN);
-  private botUsername?: string;
-  private botUserId?: number;
+  private botUsername = "";
+  private botUserId = 0;
 
   constructor() {
+    this.initializeBot();
+    this.setupMessageHandler();
+  }
+
+  private initializeBot(): void {
     this.bot.api.getMe().then((me) => {
-      this.botUsername = me.username;
+      this.botUsername = me.username ?? "";
       this.botUserId = me.id;
       claude.botName = me.username;
       logger.info({ username: me.username, userId: me.id }, "Bot initialized");
     });
+  }
 
+  private setupMessageHandler(): void {
     this.bot.on("message", async (ctx) => {
       const isGroupChat = ctx.chat?.type === "group" || ctx.chat?.type === "supergroup";
 
       if (isGroupChat) {
         if (ctx.chat?.id !== env.ALLOWED_CHAT_ID) return;
-
         if (!isBotMentioned(ctx.message, this.botUsername, this.botUserId)) return;
-
         logger.info({ username: ctx.from?.username, userId: ctx.from?.id }, "Received mention in group");
-      } else {
-        if (ctx.from?.id !== env.ALLOWED_USER_ID) return;
-      }
+      } else if (ctx.from?.id !== env.ALLOWED_USER_ID) return;
 
       await ctx.replyWithChatAction("typing");
 
@@ -45,19 +56,12 @@ export class App {
           "Processing incoming message",
         );
 
-        let userMessage = "";
+        let userMessage = ctx.message.text || ctx.message.caption || "";
         const imageUrls: string[] = [];
 
-        const text = ctx.message.text || ctx.message.caption || "";
-        if (text) userMessage = text;
-
         if (ctx.message.photo) {
-          const photo = ctx.message.photo.at(-1);
-          if (photo) {
-            const fileLink = await ctx.api.getFile(photo.file_id);
-            const imageUrl = `https://api.telegram.org/file/bot${env.TELEGRAM_BOT_TOKEN}/${fileLink.file_path}`;
-            imageUrls.push(imageUrl);
-          }
+          const url = await this.extractPhotoUrl(ctx.message.photo, this.bot);
+          if (url) imageUrls.push(url);
         }
 
         if (ctx.message.reply_to_message) {
@@ -65,12 +69,8 @@ export class App {
           if (replyText) userMessage = `${userMessage}\n\nReplied-to message: "${replyText}"`;
 
           if (ctx.message.reply_to_message.photo) {
-            const photo = ctx.message.reply_to_message.photo.at(-1);
-            if (photo) {
-              const fileLink = await ctx.api.getFile(photo.file_id);
-              const imageUrl = `https://api.telegram.org/file/bot${env.TELEGRAM_BOT_TOKEN}/${fileLink.file_path}`;
-              imageUrls.push(imageUrl);
-            }
+            const url = await this.extractPhotoUrl(ctx.message.reply_to_message.photo, this.bot);
+            if (url) imageUrls.push(url);
           }
         }
 
@@ -91,9 +91,15 @@ export class App {
           await ctx.reply(response, replyOptions);
         }
       } catch (error) {
-        logger.error({ error: error instanceof Error ? error.message : error }, "Error processing message");
+        logger.error({ error: formatError(error) }, "Error processing message");
         await ctx.reply("Sorry, I encountered an error processing your request.");
       }
     });
+  }
+
+  private async extractPhotoUrl(photos: PhotoSize[], bot: Bot): Promise<string | undefined> {
+    const photo = photos.at(-1);
+    if (!photo) return undefined;
+    return getPhotoUrl(photo.file_id, bot);
   }
 }

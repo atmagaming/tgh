@@ -14,9 +14,22 @@ try {
 
 const app = new App();
 
-if (env.BOT_MODE === "webhook") {
-  if (!env.WEBHOOK_URL) throw new Error("WEBHOOK_URL is required for webhook mode");
+// Notify about new version in production
+if (env.TELEGRAM_SESSION_LOCAL === undefined) {
+  try {
+    const versionFile = await Bun.file("./version.json").json();
+    const version = versionFile.version as string;
+    await app.bot.api.sendMessage(env.ALLOWED_CHAT_ID, `🚀 Bot updated to version ${version}`);
+    logger.info({ version }, "Version notification sent");
+  } catch (error) {
+    logger.warn(
+      { error: error instanceof Error ? error.message : String(error) },
+      "Failed to send version notification",
+    );
+  }
+}
 
+if (env.BOT_MODE === "webhook") {
   await app.bot.api.setWebhook(`${env.WEBHOOK_URL}/webhook`);
   logger.info({ webhookUrl: `${env.WEBHOOK_URL}/webhook` }, "Webhook configured");
 
@@ -41,14 +54,16 @@ if (env.BOT_MODE === "webhook") {
 }
 
 // Graceful shutdown
-process.on("SIGINT", async () => {
-  logger.info("Shutting down...");
-  await gramjsClient.disconnect();
-  process.exit(0);
-});
+async function shutdown(signal: string): Promise<void> {
+  logger.info({ signal }, "Shutting down...");
+  try {
+    await gramjsClient.disconnect();
+  } catch (error) {
+    logger.error({ error: error instanceof Error ? error.message : String(error) }, "Error during shutdown");
+  } finally {
+    process.exit(0);
+  }
+}
 
-process.on("SIGTERM", async () => {
-  logger.info("Shutting down...");
-  await gramjsClient.disconnect();
-  process.exit(0);
-});
+process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("SIGTERM", () => shutdown("SIGTERM"));

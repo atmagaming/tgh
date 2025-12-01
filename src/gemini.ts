@@ -103,8 +103,12 @@ export class GeminiClient {
     return { inlineData: { mimeType, data: base64 } };
   }
 
-  base64ToBuffer(base64: string): Uint8Array {
+  private base64ToBuffer(base64: string): Uint8Array {
     return Buffer.from(base64, "base64");
+  }
+
+  convertBase64ToBuffer(base64: string): Uint8Array {
+    return this.base64ToBuffer(base64);
   }
 }
 

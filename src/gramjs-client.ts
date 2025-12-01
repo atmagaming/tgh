@@ -4,6 +4,10 @@ import { StringSession } from "telegram/sessions";
 import { env } from "./env";
 import { logger } from "./logger";
 
+const GRAMJS_CONNECTION_RETRIES = 5;
+const GRAMJS_MAX_MESSAGES_LIMIT = 100;
+const GRAMJS_DEFAULT_MESSAGES_LIMIT = 10;
+
 export class GramJSClient {
   private client: TelegramClient;
   private initialized = false;
@@ -12,7 +16,7 @@ export class GramJSClient {
     const sessionString = env.TELEGRAM_SESSION_LOCAL ?? env.TELEGRAM_SESSION;
     const session = new StringSession(sessionString);
     this.client = new TelegramClient(session, env.TELEGRAM_API_ID, env.TELEGRAM_API_HASH, {
-      connectionRetries: 5,
+      connectionRetries: GRAMJS_CONNECTION_RETRIES,
       baseLogger: new (class extends Logger {
         override log() {
           return;
@@ -41,11 +45,11 @@ export class GramJSClient {
   }): Promise<Array<{ id: number; text: string; date: Date; senderId?: number }>> {
     if (!this.initialized) throw new Error("GramJS client not initialized");
 
-    const { query, limit = 10 } = params;
+    const { query, limit = GRAMJS_DEFAULT_MESSAGES_LIMIT } = params;
 
     const messages = await this.client.getMessages(env.ALLOWED_CHAT_ID, {
       search: query,
-      limit: Math.min(limit, 100),
+      limit: Math.min(limit, GRAMJS_MAX_MESSAGES_LIMIT),
     });
 
     return messages.map((msg) => ({
@@ -64,7 +68,7 @@ export class GramJSClient {
 
     const [message, replies] = await Promise.all([
       this.client.getMessages(env.ALLOWED_CHAT_ID, { ids: [messageId] }),
-      this.client.getMessages(env.ALLOWED_CHAT_ID, { replyTo: messageId, limit: 100 }),
+      this.client.getMessages(env.ALLOWED_CHAT_ID, { replyTo: messageId, limit: GRAMJS_MAX_MESSAGES_LIMIT }),
     ]);
 
     return {
@@ -79,10 +83,10 @@ export class GramJSClient {
   }): Promise<Array<{ id: number; text: string; date: Date; senderId?: number }>> {
     if (!this.initialized) throw new Error("GramJS client not initialized");
 
-    const { limit = 10, offset = 0 } = params;
+    const { limit = GRAMJS_DEFAULT_MESSAGES_LIMIT, offset = 0 } = params;
 
     const messages = await this.client.getMessages(env.ALLOWED_CHAT_ID, {
-      limit: Math.min(limit, 100),
+      limit: Math.min(limit, GRAMJS_MAX_MESSAGES_LIMIT),
       offsetId: offset,
     });
 
@@ -127,7 +131,7 @@ export class GramJSClient {
     }
 
     try {
-      const participants = await this.client.getParticipants(env.ALLOWED_CHAT_ID, { limit: 100 });
+      const participants = await this.client.getParticipants(env.ALLOWED_CHAT_ID, { limit: GRAMJS_MAX_MESSAGES_LIMIT });
       result.participants = participants.map((p) => ({
         id: p.id.valueOf() as number,
         username: "username" in p ? (p.username as string) : undefined,

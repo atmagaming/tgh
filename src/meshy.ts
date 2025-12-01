@@ -1,6 +1,8 @@
 import { env } from "./env";
 
 const MESHY_API_BASE = "https://api.meshy.ai";
+const MESHY_POLL_INTERVAL_MS = 5000;
+const MESHY_MAX_POLL_ATTEMPTS = 360; // 30 minutes max (360 * 5s)
 
 export interface MeshyTask {
   id: string;
@@ -85,20 +87,22 @@ export class MeshyClient {
     return (await response.json()) as MeshyTask;
   }
 
-  async pollTask(taskId: string, onProgress?: (task: MeshyTask) => void): Promise<MeshyTask> {
-    while (true) {
+  async pollTask(
+    taskId: string,
+    onProgress?: (task: MeshyTask) => void,
+    maxAttempts = MESHY_MAX_POLL_ATTEMPTS,
+  ): Promise<MeshyTask> {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
       const task = await this.getTask(taskId);
 
-      if (onProgress) {
-        onProgress(task);
-      }
+      if (onProgress) onProgress(task);
 
-      if (task.status === "SUCCEEDED" || task.status === "FAILED" || task.status === "CANCELED") {
-        return task;
-      }
+      if (task.status === "SUCCEEDED" || task.status === "FAILED" || task.status === "CANCELED") return task;
 
-      await new Promise((resolve) => setTimeout(resolve, 5000));
+      await new Promise((resolve) => setTimeout(resolve, MESHY_POLL_INTERVAL_MS));
     }
+
+    throw new Error(`Polling timeout: task ${taskId} did not complete after ${maxAttempts} attempts`);
   }
 
   async downloadFile(url: string): Promise<Uint8Array> {

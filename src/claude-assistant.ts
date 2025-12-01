@@ -5,12 +5,17 @@ import { logger } from "./logger";
 import { safeEditMessageTextFromContext } from "./telegram-utils";
 import { executeTool, type ToolContext, tools } from "./tools";
 
+const CLAUDE_MODEL = "claude-sonnet-4-20250514";
+const CLAUDE_MAX_TOKENS = 1024;
+
 interface ToolExecutionLog {
   toolName: string;
   input: Record<string, unknown>;
   status: "running" | "completed" | "error";
   result?: unknown;
 }
+
+const formatError = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 
 export class ClaudeAssistant {
   botName?: string;
@@ -36,8 +41,8 @@ Response style:
 
     try {
       let response = await this.client.messages.create({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 1024,
+        model: CLAUDE_MODEL,
+        max_tokens: CLAUDE_MAX_TOKENS,
         system: systemPrompt,
         tools,
         messages,
@@ -69,7 +74,11 @@ Response style:
           };
           toolLogs.push(toolLog);
 
-          if (telegramCtx && botReplyMessageId) await this.updateTempMessage(telegramCtx, botReplyMessageId, toolLogs);
+          if (telegramCtx && botReplyMessageId) {
+            await this.updateTempMessage(telegramCtx, botReplyMessageId, toolLogs).catch((error) =>
+              logger.debug({ error: formatError(error) }, "Failed to update progress message"),
+            );
+          }
 
           const toolContext: ToolContext | undefined =
             telegramCtx && botReplyMessageId ? { telegramCtx, messageId: botReplyMessageId } : undefined;
@@ -85,7 +94,7 @@ Response style:
             });
           } catch (error) {
             toolLog.status = "error";
-            toolLog.result = error instanceof Error ? error.message : "Unknown error";
+            toolLog.result = formatError(error);
             toolResults.push({
               type: "tool_result",
               tool_use_id: toolUse.id,
@@ -94,7 +103,11 @@ Response style:
             });
           }
 
-          if (telegramCtx && botReplyMessageId) await this.updateTempMessage(telegramCtx, botReplyMessageId, toolLogs);
+          if (telegramCtx && botReplyMessageId) {
+            await this.updateTempMessage(telegramCtx, botReplyMessageId, toolLogs).catch((error) =>
+              logger.debug({ error: formatError(error) }, "Failed to update progress message"),
+            );
+          }
         }
 
         messages.push({ role: "assistant", content: response.content });
@@ -104,8 +117,8 @@ Response style:
         });
 
         response = await this.client.messages.create({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1024,
+          model: CLAUDE_MODEL,
+          max_tokens: CLAUDE_MAX_TOKENS,
           system: systemPrompt,
           tools,
           messages,
@@ -124,7 +137,7 @@ Response style:
 
       throw new Error("Unexpected response type from Claude");
     } catch (error) {
-      logger.error({ error: error instanceof Error ? error.message : error }, "Claude API error");
+      logger.error({ error: formatError(error) }, "Claude API error");
       throw new Error("Failed to process message with Claude API");
     }
   }

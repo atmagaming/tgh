@@ -75,14 +75,14 @@ async function handleGeminiGeneration(
 
     const base64Images = await geminiClient.generateImage({
       prompt: params.prompt,
-      aspectRatio: params.aspectRatio as "1:1",
-      numberOfImages: params.numberOfImages as 1,
-      personGeneration: params.personGeneration as PersonGeneration.ALLOW_ALL,
+      aspectRatio: params.aspectRatio as "1:1" | "3:4" | "4:3" | "9:16" | "16:9" | undefined,
+      numberOfImages: params.numberOfImages as 1 | 2 | 3 | 4 | undefined,
+      personGeneration: params.personGeneration as PersonGeneration | undefined,
     });
 
     await progress.sendMultiplePhotosAndFiles({
       items: base64Images.map((image, i) => {
-        const imageBuffer = geminiClient.base64ToBuffer(image);
+        const imageBuffer = geminiClient.convertBase64ToBuffer(image);
         const photoCaption = base64Images.length > 1 ? `Variation ${i + 1}/${base64Images.length}` : "Generated image";
         return {
           imageData: imageBuffer,

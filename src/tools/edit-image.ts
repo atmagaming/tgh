@@ -79,9 +79,9 @@ async function handleGeminiEditing(
     const base64Image = await geminiClient.editImage({
       prompt: params.prompt,
       referenceImages: params.referenceImages,
-      aspectRatio: params.aspectRatio as "1:1",
+      aspectRatio: params.aspectRatio as "1:1" | "3:4" | "4:3" | "9:16" | "16:9" | undefined,
     });
-    const imageBuffer = geminiClient.base64ToBuffer(base64Image);
+    const imageBuffer = geminiClient.convertBase64ToBuffer(base64Image);
 
     await progress.sendPhotoAndFile({
       imageData: imageBuffer,
