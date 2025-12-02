@@ -49,63 +49,68 @@ export const webSearchTool: Tool = {
     logger.info({ query }, "Web search request received");
 
     if (context?.telegramCtx && context?.messageId) {
-      handleWebSearch(query, context.telegramCtx, context.messageId).catch((error) =>
-        logger.error({ query, error: error instanceof Error ? error.message : error }, "Web search failed"),
-      );
+      return await handleWebSearch(query, context.telegramCtx, context.messageId);
     }
 
-    return "Searching the web...";
+    return await performWebSearch(query);
   },
 };
+
+async function performWebSearch(query: string): Promise<string> {
+  const response = await fetch("https://api.perplexity.ai/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${env.PERPLEXITY_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: "sonar",
+      messages: [
+        {
+          role: "user",
+          content: query,
+        },
+      ] satisfies PerplexityMessage[],
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Perplexity API error: ${response.status} ${errorText}`);
+  }
+
+  const data = (await response.json()) as PerplexityResponse;
+  const answer = data.choices[0]?.message.content;
+
+  if (!answer) throw new Error("No response from Perplexity API");
+
+  const citations = data.citations;
+  let result = answer;
+
+  if (citations && citations.length > 0) {
+    result += "\n\nSources:\n";
+    for (const citation of citations) result += `• ${citation}\n`;
+  }
+
+  logger.info({ query, answerLength: answer.length, citationCount: citations?.length || 0 }, "Web search completed");
+  return result;
+}
 
 async function handleWebSearch(query: string, ctx: Context, messageId: number) {
   const progress = createProgressHandler(ctx, messageId);
 
   try {
     await progress.updateProgress({ text: "🔍 Searching the web..." });
+    const result = await performWebSearch(query);
 
-    const response = await fetch("https://api.perplexity.ai/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${env.PERPLEXITY_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "sonar",
-        messages: [
-          {
-            role: "user",
-            content: query,
-          },
-        ] satisfies PerplexityMessage[],
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Perplexity API error: ${response.status} ${errorText}`);
-    }
-
-    const data = (await response.json()) as PerplexityResponse;
-    const answer = data.choices[0]?.message.content;
-
-    if (!answer) throw new Error("No response from Perplexity API");
-
-    const citations = data.citations;
-    let message = `🔍 Web Search Results\n\n${answer}`;
-
-    if (citations && citations.length > 0) {
-      message += "\n\nSources:\n";
-      for (const citation of citations) message += `• ${citation}\n`;
-    }
-
-    await ctx.api.sendMessage(ctx.chat?.id ?? 0, message, {
+    await ctx.api.sendMessage(ctx.chat?.id ?? 0, `🔍 Web Search Results\n\n${result}`, {
       message_thread_id: ctx.message?.message_thread_id,
     });
 
-    logger.info({ query, answerLength: answer.length, citationCount: citations?.length || 0 }, "Web search completed");
+    return result;
   } catch (error) {
     logger.error({ query, error: error instanceof Error ? error.message : error }, "Web search failed in handler");
     await progress.showError(`Web search failed: ${error instanceof Error ? error.message : "Unknown error"}`);
+    throw error;
   }
 }

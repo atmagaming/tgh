@@ -7,6 +7,7 @@ import { executeTool, type ToolContext, tools } from "./tools";
 
 const CLAUDE_MODEL = "claude-sonnet-4-20250514";
 const CLAUDE_MAX_TOKENS = 2048;
+const MAX_TOOL_ITERATIONS = 10;
 
 interface ToolExecutionLog {
   toolName: string;
@@ -56,6 +57,7 @@ Response style:
 
       let botReplyMessageId: number | undefined;
       const toolLogs: ToolExecutionLog[] = [];
+      let iterationCount = 0;
 
       const thinkingBlock = response.content.find((block) => block.type === "thinking");
 
@@ -67,7 +69,8 @@ Response style:
         botReplyMessageId = sentMessage.message_id;
       }
 
-      while (response.stop_reason === "tool_use") {
+      while (response.stop_reason === "tool_use" && iterationCount < MAX_TOOL_ITERATIONS) {
+        iterationCount++;
         const toolUses = response.content.filter((block) => block.type === "tool_use");
         if (toolUses.length === 0) break;
 
@@ -143,6 +146,13 @@ Response style:
             budget_tokens: 1024,
           },
         });
+      }
+
+      if (iterationCount >= MAX_TOOL_ITERATIONS) {
+        logger.warn(
+          { iterationCount, lastStopReason: response.stop_reason },
+          "Maximum tool iterations reached, stopping",
+        );
       }
 
       if (botReplyMessageId && telegramCtx) {
