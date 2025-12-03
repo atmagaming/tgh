@@ -1,3 +1,4 @@
+import { models } from "../models";
 import { getChatInfoTool } from "../tools/get-chat-info";
 import { getMessageHistoryTool } from "../tools/get-message-history";
 import { getMessageInfoTool } from "../tools/get-message-info";
@@ -60,7 +61,7 @@ export class ChatInfoAgent extends Agent {
   constructor() {
     super(
       "chat_info_agent",
-      "claude-sonnet-4-20250514",
+      models.thinking,
       CHAT_INFO_AGENT_PROMPT,
       [
         searchMessagesTool,

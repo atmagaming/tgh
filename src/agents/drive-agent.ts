@@ -1,3 +1,5 @@
+import { models } from "../models";
+import { createDriveFolderTool } from "../tools/create-drive-folder";
 import { deleteDriveFileTool } from "../tools/delete-drive-file";
 import { downloadDriveFileTool } from "../tools/download-drive-file";
 import { listDriveFilesTool } from "../tools/list-drive-files";
@@ -58,10 +60,11 @@ export class DriveAgent extends Agent {
   constructor() {
     super(
       "drive_agent",
-      "claude-sonnet-4-20250514",
+      models.thinking,
       DRIVE_AGENT_PROMPT,
       [
         listDriveFilesTool,
+        createDriveFolderTool,
         searchDriveFilesTool,
         downloadDriveFileTool,
         uploadDriveFileTool,

@@ -1,3 +1,4 @@
+import { models } from "../models";
 import { analyzeImageTool } from "../tools/analyze-image";
 import { editImageTool } from "../tools/edit-image";
 import { generate3DFromImageTool } from "../tools/generate-3d-from-image";
@@ -52,7 +53,7 @@ export class ImageAgent extends Agent {
   constructor() {
     super(
       "image_agent",
-      "claude-sonnet-4-20250514",
+      models.thinking,
       IMAGE_AGENT_PROMPT,
       [generateImageTool, editImageTool, analyzeImageTool, generate3DFromImageTool],
       2048,

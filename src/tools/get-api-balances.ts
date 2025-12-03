@@ -1,4 +1,5 @@
 import { env } from "../env";
+import { models } from "../models";
 import type { Tool } from "./types";
 
 interface ServiceBalance {
@@ -51,7 +52,7 @@ async function getAnthropicBalance(): Promise<ServiceBalance> {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: "claude-3-5-haiku-20241022",
+        model: models.fast,
         max_tokens: 1,
         messages: [{ role: "user", content: "test" }],
       }),

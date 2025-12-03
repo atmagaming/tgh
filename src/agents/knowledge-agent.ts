@@ -1,3 +1,4 @@
+import { models } from "../models";
 import { addMemoryTool } from "../tools/add-memory";
 import { getGDDPageTool } from "../tools/get-gdd-page";
 import { getMemoryTool } from "../tools/get-memory";
@@ -55,7 +56,7 @@ export class KnowledgeAgent extends Agent {
   constructor() {
     super(
       "knowledge_agent",
-      "claude-sonnet-4-20250514",
+      models.thinking,
       KNOWLEDGE_AGENT_PROMPT,
       [searchGDDTool, getGDDPageTool, searchMemoriesTool, addMemoryTool, updateMemoryTool, getMemoryTool],
       2048,

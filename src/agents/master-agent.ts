@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import type { Context } from "grammy";
 import { env } from "../env";
 import { logger } from "../logger";
+import { models } from "../models";
 import type { Tool } from "../tools/types";
 import type { ToolContext } from "./types";
 
@@ -45,7 +46,7 @@ export class MasterAgent {
       const messages: Anthropic.MessageParam[] = [{ role: "user", content: userMessage }];
 
       let response = await this.client.messages.create({
-        model: "claude-sonnet-4-20250514",
+        model: models.fast,
         max_tokens: 4096,
         system: MASTER_SYSTEM_PROMPT,
         tools: this.tools.map((t) => t.definition),
@@ -92,7 +93,7 @@ export class MasterAgent {
         messages.push({ role: "user", content: toolResults });
 
         response = await this.client.messages.create({
-          model: "claude-sonnet-4-20250514",
+          model: models.fast,
           max_tokens: 4096,
           system: MASTER_SYSTEM_PROMPT,
           tools: this.tools.map((t) => t.definition),

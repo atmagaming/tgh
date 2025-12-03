@@ -1,3 +1,4 @@
+import { models } from "../models";
 import { webSearchTool } from "../tools/web-search";
 import { Agent } from "./agent";
 
@@ -39,6 +40,6 @@ export class WebAgent extends Agent {
   };
 
   constructor() {
-    super("web_agent", "claude-sonnet-4-20250514", WEB_AGENT_PROMPT, [webSearchTool], 2048, 1024);
+    super("web_agent", models.thinking, WEB_AGENT_PROMPT, [webSearchTool], 2048, 1024);
   }
 }

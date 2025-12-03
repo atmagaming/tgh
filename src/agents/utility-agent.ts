@@ -1,3 +1,4 @@
+import { models } from "../models";
 import { getAPIBalancesTool } from "../tools/get-api-balances";
 import { Agent } from "./agent";
 
@@ -33,6 +34,6 @@ export class UtilityAgent extends Agent {
   };
 
   constructor() {
-    super("utility_agent", "claude-sonnet-4-20250514", UTILITY_AGENT_PROMPT, [getAPIBalancesTool], 1024, 512);
+    super("utility_agent", models.thinking, UTILITY_AGENT_PROMPT, [getAPIBalancesTool], 1024, 512);
   }
 }

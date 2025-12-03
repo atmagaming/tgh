@@ -2,10 +2,11 @@ import Anthropic from "@anthropic-ai/sdk";
 import type { Context } from "grammy";
 import { env } from "./env";
 import { logger } from "./logger";
+import { models } from "./models";
 import { safeEditMessageTextFromContext } from "./telegram-utils";
 import { executeTool, type ToolContext, tools } from "./tools";
 
-const CLAUDE_MODEL = "claude-sonnet-4-20250514";
+const CLAUDE_MODEL = models.thinking;
 const CLAUDE_MAX_TOKENS = 2048;
 const MAX_TOOL_ITERATIONS = 10;
 
