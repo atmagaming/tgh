@@ -11,7 +11,6 @@ const envSchema = z
     // Optional with defaults
     BOT_MODE: z.enum(["polling", "webhook"]).default("polling"),
     PORT: z.coerce.number().default(10000),
-    AGENT_MODE: z.enum(["single", "multi"]).default("single"),
 
     // Optional
     WEBHOOK_URL: z.string().optional(),

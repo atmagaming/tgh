@@ -7,7 +7,6 @@ import { KnowledgeAgent } from "./agents/knowledge-agent";
 import { MasterAgent } from "./agents/master-agent";
 import { UtilityAgent } from "./agents/utility-agent";
 import { WebAgent } from "./agents/web-agent";
-import { claude } from "./claude-assistant";
 import { env } from "./env";
 import { logger } from "./logger";
 import { replyWithLongMessage } from "./telegram-message-sender";
@@ -26,17 +25,15 @@ export class App {
   readonly bot = new Bot(env.TELEGRAM_BOT_TOKEN);
   private botUsername = "";
   private botUserId = 0;
-  private masterAgent?: MasterAgent;
+  private masterAgent = new MasterAgent();
 
   constructor() {
-    if (env.AGENT_MODE === "multi") this.initializeMasterAgent();
+    this.initializeMasterAgent();
     this.initializeBot();
     this.setupMessageHandler();
   }
 
   private initializeMasterAgent(): void {
-    this.masterAgent = new MasterAgent();
-
     // Register agents
     this.masterAgent.registerTool(new ImageAgent());
     this.masterAgent.registerTool(new ChatInfoAgent());
@@ -55,7 +52,6 @@ export class App {
     this.bot.api.getMe().then((me) => {
       this.botUsername = me.username ?? "";
       this.botUserId = me.id;
-      claude.botName = me.username;
       logger.info({ username: me.username, userId: me.id }, "Bot initialized");
     });
   }
@@ -122,12 +118,7 @@ export class App {
 
         if (!userMessage) return;
 
-        let response: string;
-        if (env.AGENT_MODE === "multi" && this.masterAgent) {
-          response = await this.masterAgent.processMessage(userMessage, ctx);
-        } else {
-          response = await claude.processMessage(userMessage, ctx);
-        }
+        const response = await this.masterAgent.processMessage(userMessage, ctx);
 
         if (response) {
           const replyOptions: { reply_parameters: { message_id: number }; message_thread_id?: number } = {
