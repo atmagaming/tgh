@@ -1,8 +1,8 @@
+import { env } from "env";
 import { webhookCallback } from "grammy";
+import { logger } from "logger";
+import { gramjsClient } from "services/telegram";
 import { App } from "./app";
-import { env } from "./env";
-import { gramjsClient } from "./gramjs-client";
-import { logger } from "./logger";
 
 // Initialize GramJS client
 try {

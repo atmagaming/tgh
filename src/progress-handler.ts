@@ -1,7 +1,6 @@
 import { type Context, InputFile } from "grammy";
-import { logger } from "./logger";
-import { sendLongMessage } from "./telegram-message-sender";
-import { safeEditMessageTextFromContext } from "./telegram-utils";
+import { logger } from "logger";
+import { safeEditMessageTextFromContext, sendLongMessage } from "services/telegram";
 
 interface ProgressUpdate {
   text: string;

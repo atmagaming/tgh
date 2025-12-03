@@ -1,17 +1,16 @@
+import { ChatInfoAgent } from "agents/chat-info-agent/chat-info-agent";
+import { DriveAgent } from "agents/drive-agent/drive-agent";
+import { ImageAgent } from "agents/image-agent/image-agent";
+import { KnowledgeAgent } from "agents/knowledge-agent/knowledge-agent";
+import { MasterAgent } from "agents/master-agent/master-agent";
+import { UtilityAgent } from "agents/utility-agent/utility-agent";
+import { WebAgent } from "agents/web-agent/web-agent";
+import { env } from "env";
 import { Bot } from "grammy";
 import type { Document, PhotoSize } from "grammy/types";
-import { ChatInfoAgent } from "./agents/chat-info-agent";
-import { DriveAgent } from "./agents/drive-agent";
-import { ImageAgent } from "./agents/image-agent";
-import { KnowledgeAgent } from "./agents/knowledge-agent";
-import { MasterAgent } from "./agents/master-agent";
-import { UtilityAgent } from "./agents/utility-agent";
-import { WebAgent } from "./agents/web-agent";
-import { env } from "./env";
-import { logger } from "./logger";
-import { replyWithLongMessage } from "./telegram-message-sender";
-import { isImageDocument } from "./utils/image-detector";
-import { isBotMentioned } from "./utils/mention-parser";
+import { logger } from "logger";
+import { replyWithLongMessage } from "services/telegram";
+import { isBotMentioned, isImageDocument } from "shared/utils";
 
 const formatError = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 
