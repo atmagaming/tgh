@@ -3,9 +3,11 @@
   "version": "1.0.0",
   "type": "module",
   "private": true,
+  "packageManager": "bun@1.3.3",
   "scripts": {
     "start": "bun run src/index.ts",
     "dev": "bun run --watch src/index.ts",
+    "cli": "bun run src/cli.ts",
     "login": "bun run scripts/login.ts",
     "test": "bun test",
     "test:manual": "RUN_MANUAL_TESTS=1 bun test",
@@ -27,8 +29,8 @@
     "zod": "^4.1.13"
   },
   "devDependencies": {
-    "@types/bun": "latest",
     "@biomejs/biome": "^2.3.7",
+    "@types/bun": "latest",
     "typescript": "^5"
   }
 }
