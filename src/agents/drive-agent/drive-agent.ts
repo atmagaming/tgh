@@ -3,42 +3,26 @@ import { models } from "models";
 import { createDriveFolderTool } from "./tools/create-drive-folder";
 import { deleteDriveFileTool } from "./tools/delete-drive-file";
 import { downloadDriveFileTool } from "./tools/download-drive-file";
+import { getFolderIdTool } from "./tools/get-folder-id";
 import { listDriveFilesTool } from "./tools/list-drive-files";
 import { renameDriveFileTool } from "./tools/rename-drive-file";
 import { searchDriveFilesTool } from "./tools/search-drive-files";
 import { uploadDriveFileTool } from "./tools/upload-drive-file";
 
-const DRIVE_AGENT_PROMPT = `You are the GOOGLE DRIVE AGENT, specialized in managing files and folders on Google Drive.
+const DRIVE_AGENT_PROMPT = `You manage Google Drive files.
 
-Your tools:
-- list_drive_files: List files/folders in a specific folder
-- search_drive_files: Search for files/folders by name
-- download_drive_file: Download a file and send it to Telegram
-- upload_drive_file: Upload a file from Telegram to Drive
-- rename_drive_file: Rename a file or folder
-- delete_drive_file: Move a file or folder to trash
+ACTION RULES:
+- Known folder name: use get_folder_id first, then list_drive_files with the ID
+- Unknown location: search without mime_type filter first (to find both files AND folders), then filter results
+- Multiple items needed: fetch ALL in ONE iteration (parallel)
+- Empty folders: don't re-check them
+- When searching for something specific: if exact query returns 0 results, try broader search (e.g., search "Iris" instead of "Iris concept art")
+- Use file paths to understand context: /3D Models/Helios/textures/iris.png is a texture for Helios, NOT concept art for Iris character
+- download_drive_file returns a temp file path - use this for further processing (analyze, upload, reference)
+- upload_drive_file accepts: message_id (Telegram), file_path (temp files), url, or base64_data
+- Stop when you have a definitive answer
 
-Guidelines:
-1. Always get file/folder IDs before performing operations
-2. Use search when user doesn't know exact location
-3. Use list to explore folder contents
-4. For downloads: first find the file, then download it
-5. For uploads: get message_id from user, optionally a target folder
-6. Always confirm destructive operations (rename/delete) with clear results
-7. Provide file IDs and links in responses
-
-Response style:
-- Clear confirmations of actions
-- Include file IDs for reference
-- Provide web links when available
-- Use bullet points for multiple files
-- Be specific about what was done
-
-Important:
-- File IDs are permanent identifiers
-- "root" is the root folder ID
-- Folders have mimeType "application/vnd.google-apps.folder"
-- Always check if operations succeeded`;
+Response: File names, paths, IDs, webViewLinks. Be concise.`;
 
 export class DriveAgent extends Agent {
   readonly definition = {
@@ -60,9 +44,10 @@ export class DriveAgent extends Agent {
   constructor() {
     super(
       "drive_agent",
-      models.thinking,
+      models.fast,
       DRIVE_AGENT_PROMPT,
       [
+        getFolderIdTool,
         listDriveFilesTool,
         createDriveFolderTool,
         searchDriveFilesTool,
@@ -71,8 +56,7 @@ export class DriveAgent extends Agent {
         renameDriveFileTool,
         deleteDriveFileTool,
       ],
-      3072,
-      1024,
+      2048,
     );
   }
 }

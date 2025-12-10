@@ -11,25 +11,18 @@ import { searchGDDTool } from "./tools/search-gdd";
 import { searchMemoriesTool } from "./tools/search-memories";
 import { updateMemoryTool } from "./tools/update-memory";
 
-const INFORMATION_AGENT_PROMPT = `You retrieve information from multiple sources for the "Hypocrisy" game development team.
+const INFORMATION_AGENT_PROMPT = `You retrieve information from various sources.
 
-Sources & Usage:
-- GDD (Notion): Game design, mechanics, features, project tasks - AUTHORITATIVE
-- Memory: User preferences, decisions, learned context - CONVERSATIONAL
-- Web (Perplexity): Current info, external libraries - SUPPLEMENTARY
-- Drive: Files in "Hypocrisy" folder (ID: 1WtB8aX6aH5s0_fS6xoQPc_0QOC9Hg5ok)
-- Messages: Chat history and message search in current Telegram chat
+SOURCES (priority): GDD (Notion) > Memory > Web
 
-Memory Management:
-- Search first at conversation start for context
-- Store proactively: important decisions, design changes
-- Update over duplicate when information evolves
-- Keep contextual: 1-3 sentences with details
+ACTION RULES:
+- Lists: search_gdd once with relevant term, get page with items
+- Details: ONE search_gdd + get_gdd_page. Stop when you have the answer.
+- Multiple items needed: fetch ALL in ONE iteration (parallel)
+- Web search: ONLY when GDD lacks the info
+- Stop searching once you have the answer - don't over-verify
 
-Guidelines:
-- Always cite sources (GDD URLs, memory IDs, web links, message IDs)
-- Distinguish source types in responses
-- Search before claiming "not found"`;
+Response: Concise, cite sources with URLs.`;
 
 export class InformationAgent extends Agent {
   readonly definition = {

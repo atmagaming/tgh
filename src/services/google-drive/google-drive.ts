@@ -21,6 +21,7 @@ export function getDriveClient(): drive_v3.Drive {
 export interface DriveFile {
   id: string;
   name: string;
+  path?: string;
   mimeType: string;
   size?: string;
   createdTime?: string;
@@ -31,10 +32,11 @@ export interface DriveFile {
   isFolder: boolean;
 }
 
-export function formatDriveFile(file: drive_v3.Schema$File): DriveFile {
+export function formatDriveFile(file: drive_v3.Schema$File, path?: string): DriveFile {
   return {
     id: file.id || "",
     name: file.name || "Untitled",
+    path,
     mimeType: file.mimeType || "",
     size: file.size || undefined,
     createdTime: file.createdTime || undefined,

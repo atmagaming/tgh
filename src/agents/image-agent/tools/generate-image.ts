@@ -1,15 +1,14 @@
 import type { PersonGeneration } from "@google/genai";
 import type { Tool } from "agents/agent";
-import type { Context } from "grammy";
 import { logger } from "logger";
-import { geminiClient } from "services/gemini/gemini";
-import { createProgressHandler } from "utils/progress-handler";
+import { geminiClient, type ReferenceImage } from "services/gemini/gemini";
+import { saveTempFile } from "utils/temp-files";
 
 export const generateImageTool: Tool = {
   definition: {
     name: "generate_image",
     description:
-      "Generate an image from a text description using Gemini AI. Use when user asks to create, generate, or make an image from text. This creates new images from scratch. Claude should infer configuration options from the user's message if mentioned (e.g., 'square image' → 1:1, 'landscape' → 16:9, 'portrait' → 9:16, 'generate 3 options' → numberOfImages=3).",
+      "Generate images from text description using Gemini AI. Supports style/reference images for consistency. Returns file paths - images are automatically sent to user via output handler.",
     input_schema: {
       type: "object",
       properties: {
@@ -17,23 +16,34 @@ export const generateImageTool: Tool = {
           type: "string",
           description: "Detailed description of the image to generate",
         },
+        reference_images: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              url: { type: "string", description: "Public URL of reference image" },
+              path: { type: "string", description: "Local file path (from download_drive_file, etc.)" },
+              base64: { type: "string", description: "Base64-encoded image data" },
+              mimeType: { type: "string", description: "MIME type (required for base64)" },
+            },
+          },
+          description:
+            "Style/reference images for generation. Use path for Drive downloads. First image is primary style reference.",
+        },
         aspectRatio: {
           type: "string",
           enum: ["1:1", "3:4", "4:3", "9:16", "16:9"],
-          description:
-            "Aspect ratio of generated image. Infer from user request: square/icon→1:1, portrait→9:16 or 3:4, landscape→16:9 or 4:3",
+          description: "Aspect ratio. Infer: square/icon→1:1, portrait→9:16 or 3:4, landscape→16:9 or 4:3",
         },
         numberOfImages: {
           type: "number",
           enum: [1, 2, 3, 4],
-          description:
-            "Number of image variations to generate (1-4). Infer from user request: 'give me options', 'show variations' → 2 or 3",
+          description: "Number of variations (1-4). 'give me options' → 2-3",
         },
         personGeneration: {
           type: "string",
           enum: ["dont_allow", "allow_adult", "allow_all"],
-          description:
-            "Control whether to generate people. Use dont_allow if user wants no people, allow_adult for normal usage",
+          description: "Control people generation. dont_allow if no people wanted",
         },
       },
       required: ["prompt"],
@@ -41,68 +51,49 @@ export const generateImageTool: Tool = {
   },
   execute: async (toolInput, context) => {
     const prompt = toolInput.prompt as string;
-    const aspectRatio = toolInput.aspectRatio as string | undefined;
-    const numberOfImages = toolInput.numberOfImages as number | undefined;
-    const personGeneration = toolInput.personGeneration as string | undefined;
+    const referenceImages = toolInput.reference_images as ReferenceImage[] | undefined;
+    const aspectRatio = toolInput.aspectRatio as "1:1" | "3:4" | "4:3" | "9:16" | "16:9" | undefined;
+    const numberOfImages = (toolInput.numberOfImages as 1 | 2 | 3 | 4 | undefined) ?? 1;
+    const personGeneration = toolInput.personGeneration as PersonGeneration | undefined;
 
-    logger.info({ prompt, aspectRatio, numberOfImages, personGeneration }, "Image generation request received");
+    logger.info(
+      { prompt, referenceCount: referenceImages?.length ?? 0, aspectRatio, numberOfImages, personGeneration },
+      "Image generation request",
+    );
 
-    if (context?.telegramCtx && context?.messageId) {
-      handleGeminiGeneration(
-        { prompt, aspectRatio, numberOfImages, personGeneration },
-        context.telegramCtx,
-        context.messageId,
-      ).catch((error) =>
-        logger.error({ prompt, error: error instanceof Error ? error.message : error }, "Image generation failed"),
-      );
+    // Report progress
+    context?.progress?.message(`🎨 Generating ${numberOfImages} image${numberOfImages > 1 ? "s" : ""}...`);
+
+    // Generate images (synchronous - waits for completion)
+    const base64Images = await geminiClient.generateImage({
+      prompt,
+      referenceImages,
+      aspectRatio,
+      numberOfImages,
+      personGeneration,
+    });
+
+    // Save to temp files
+    const files = [];
+    for (const [i, base64] of base64Images.entries()) {
+      const buffer = Buffer.from(base64, "base64");
+      const tempPath = await saveTempFile(buffer, "png");
+      files.push({
+        path: tempPath,
+        mimeType: "image/png",
+        caption: base64Images.length > 1 ? `Variation ${i + 1}/${base64Images.length}` : "Generated image",
+        filename: `generated-${i + 1}.png`,
+      });
     }
 
-    const count = numberOfImages || 1;
-    return `Generating ${count} image${count > 1 ? "s" : ""} with Gemini AI...`;
+    logger.info({ prompt, count: files.length }, "Image generation completed");
+
+    return {
+      success: true,
+      message: `Generated ${files.length} image${files.length > 1 ? "s" : ""}`,
+      prompt,
+      // Output handler will send these to Telegram/console
+      files,
+    };
   },
 };
-
-async function handleGeminiGeneration(
-  params: { prompt: string; aspectRatio?: string; numberOfImages?: number; personGeneration?: string },
-  ctx: Context,
-  messageId: number,
-) {
-  const progress = createProgressHandler(ctx, messageId);
-
-  try {
-    const count = params.numberOfImages || 1;
-    await progress.updateProgress({ text: `🎨 Generating ${count} image${count > 1 ? "s" : ""} with Gemini AI...` });
-
-    const base64Images = await geminiClient.generateImage({
-      prompt: params.prompt,
-      aspectRatio: params.aspectRatio as "1:1" | "3:4" | "4:3" | "9:16" | "16:9" | undefined,
-      numberOfImages: params.numberOfImages as 1 | 2 | 3 | 4 | undefined,
-      personGeneration: params.personGeneration as PersonGeneration | undefined,
-    });
-
-    await progress.sendMultiplePhotosAndFiles({
-      items: base64Images.map((image, i) => {
-        const imageBuffer = geminiClient.convertBase64ToBuffer(image);
-        const photoCaption = base64Images.length > 1 ? `Variation ${i + 1}/${base64Images.length}` : "Generated image";
-        return {
-          imageData: imageBuffer,
-          photoCaption,
-          filename: `generated-${i + 1}.png`,
-          fileCaption: "Full quality",
-        };
-      }),
-    });
-
-    await progress.sendFinalMessage(
-      `✅ Generated ${base64Images.length} image${base64Images.length > 1 ? "s" : ""}\nPrompt: "${params.prompt}"`,
-    );
-
-    logger.info({ prompt: params.prompt, count: base64Images.length }, "Image generation completed successfully");
-  } catch (error) {
-    logger.error(
-      { prompt: params.prompt, error: error instanceof Error ? error.message : error },
-      "Image generation failed in handler",
-    );
-    await progress.showError(`Image generation failed: ${error instanceof Error ? error.message : "Unknown error"}`);
-  }
-}

@@ -4,6 +4,8 @@ import { Bot } from "grammy";
 import { logger } from "logger";
 import { replyWithLongMessage } from "services/telegram";
 import { formatError, isBotMentioned, isImageDocument } from "utils";
+import { Output, TelegramOutputTarget } from "utils/output";
+import { Progress, TelegramTarget } from "utils/progress";
 
 export class App {
   readonly bot = new Bot(env.TELEGRAM_BOT_TOKEN);
@@ -46,10 +48,27 @@ export class App {
 
         if (!userMessage) return;
 
+        // Create progress tracker with Telegram target for status updates
+        const progress = new Progress();
+        const statusMessage = await ctx.reply("Processing...", {
+          reply_parameters: { message_id: ctx.message.message_id },
+        });
+        progress.addTarget(new TelegramTarget(ctx, statusMessage.message_id));
+
+        // Create output handler with Telegram target for file outputs
+        const output = new Output({ cleanupAfterSend: false }); // Don't cleanup - files may be needed for further operations
+        output.addTarget(new TelegramOutputTarget(ctx, ctx.message.message_id, statusMessage.message_id));
+
         const result = await this.masterAgent.processTask(userMessage, {
           telegramCtx: ctx,
           messageId: ctx.message.message_id,
+          progress,
+          output,
         });
+
+        // Clean up progress and status message
+        progress.clearTargets();
+        await ctx.api.deleteMessage(ctx.chat.id, statusMessage.message_id).catch(() => {});
 
         if (!result.success) throw new Error(result.error ?? "Master agent task failed");
 

@@ -1,16 +1,14 @@
 import type { Readable } from "node:stream";
 import type { Tool } from "agents/agent";
-import type { Context } from "grammy";
-import { InputFile } from "grammy";
 import { logger } from "logger";
 import { getDriveClient } from "services/google-drive/google-drive";
-import { createProgressHandler } from "utils/progress-handler";
+import { saveTempFile } from "utils/temp-files";
 
 export const downloadDriveFileTool: Tool = {
   definition: {
     name: "download_drive_file",
     description:
-      "Download a file from Google Drive and send it to Telegram. Use this when the user wants to retrieve a file from their Drive. Requires the file ID which can be obtained from list_drive_files or search_drive_files tools.",
+      "Download a file from Google Drive to a local temp file. Returns the file path for further processing (upload to Drive, analyze, use as reference). The file will be automatically sent to the user via output handler.",
     input_schema: {
       type: "object",
       properties: {
@@ -22,43 +20,27 @@ export const downloadDriveFileTool: Tool = {
       required: ["file_id"],
     },
   },
-  execute: async (toolInput, context) => {
+  execute: async (toolInput) => {
     const fileId = toolInput.file_id as string;
 
     logger.info({ fileId }, "Downloading Drive file");
 
-    if (!context?.telegramCtx) throw new Error("Telegram context required for file download");
-
-    return await downloadAndSendFile(fileId, context.telegramCtx, context.messageId);
-  },
-};
-
-async function downloadAndSendFile(fileId: string, ctx: Context, messageId?: number) {
-  const progress = messageId ? createProgressHandler(ctx, messageId) : null;
-
-  try {
-    await progress?.updateProgress({ text: "📥 Fetching file metadata..." });
-
     const drive = getDriveClient();
+
+    // Get file metadata
     const metadata = await drive.files.get({
       fileId,
       fields: "id, name, mimeType, size",
     });
 
-    const fileName = metadata.data.name || "download";
+    const fileName = metadata.data.name ?? "download";
+    const mimeType = metadata.data.mimeType ?? "application/octet-stream";
     const fileSize = metadata.data.size ? Number.parseInt(metadata.data.size, 10) : undefined;
 
-    logger.info({ fileId, fileName, fileSize }, "File metadata retrieved");
+    logger.info({ fileId, fileName, mimeType, fileSize }, "File metadata retrieved");
 
-    await progress?.updateProgress({ text: `📥 Downloading ${fileName}...` });
-
-    const response = await drive.files.get(
-      {
-        fileId,
-        alt: "media",
-      },
-      { responseType: "stream" },
-    );
+    // Download file content
+    const response = await drive.files.get({ fileId, alt: "media" }, { responseType: "stream" });
 
     const stream = response.data as unknown as Readable;
     const chunks: Buffer[] = [];
@@ -67,30 +49,50 @@ async function downloadAndSendFile(fileId: string, ctx: Context, messageId?: num
 
     const fileBuffer = Buffer.concat(chunks);
 
-    logger.info({ fileId, fileName, downloadedSize: fileBuffer.length }, "File downloaded");
+    // Get extension from filename or mimeType
+    const ext = getExtension(fileName, mimeType);
 
-    await progress?.updateProgress({ text: `📤 Uploading ${fileName} to Telegram...` });
+    // Save to temp file
+    const tempPath = await saveTempFile(fileBuffer, ext);
 
-    const inputFile = new InputFile(fileBuffer, fileName);
-
-    await ctx.replyWithDocument(inputFile, {
-      caption: `📎 ${fileName}\n${fileSize ? `Size: ${formatBytes(fileSize)}` : ""}`,
-      reply_parameters: messageId ? { message_id: messageId } : undefined,
-      message_thread_id: ctx.message?.message_thread_id,
-    });
+    logger.info({ fileId, fileName, tempPath, size: fileBuffer.length }, "File downloaded to temp");
 
     return {
       success: true,
       file_id: fileId,
       file_name: fileName,
-      file_size: fileBuffer.length,
-      message: "File downloaded and sent successfully",
+      mime_type: mimeType,
+      size: fileBuffer.length,
+      path: tempPath,
+      // Output handler will send this file to Telegram/console
+      files: [
+        {
+          path: tempPath,
+          mimeType,
+          filename: fileName,
+          caption: `📎 ${fileName}${fileSize ? ` (${formatBytes(fileSize)})` : ""}`,
+        },
+      ],
     };
-  } catch (error) {
-    logger.error({ fileId, error: error instanceof Error ? error.message : error }, "File download failed");
-    await progress?.showError(`Failed to download file: ${error instanceof Error ? error.message : "Unknown error"}`);
-    throw error;
-  }
+  },
+};
+
+function getExtension(fileName: string, mimeType: string): string {
+  // Try to get extension from filename
+  const dotIndex = fileName.lastIndexOf(".");
+  if (dotIndex !== -1) return fileName.slice(dotIndex + 1);
+
+  // Fall back to mimeType mapping
+  const mimeToExt: Record<string, string> = {
+    "image/png": "png",
+    "image/jpeg": "jpg",
+    "image/gif": "gif",
+    "image/webp": "webp",
+    "application/pdf": "pdf",
+    "text/plain": "txt",
+    "application/json": "json",
+  };
+  return mimeToExt[mimeType] ?? "bin";
 }
 
 function formatBytes(bytes: number): string {

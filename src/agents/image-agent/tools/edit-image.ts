@@ -1,14 +1,13 @@
 import type { Tool } from "agents/agent";
-import type { Context } from "grammy";
 import { logger } from "logger";
 import { geminiClient } from "services/gemini/gemini";
-import { createProgressHandler } from "utils/progress-handler";
+import { saveTempFile } from "utils/temp-files";
 
 export const editImageTool: Tool = {
   definition: {
     name: "edit_image",
     description:
-      "Edit or modify existing images based on text instructions. Supports modifications like changing colors/lighting, adding/removing objects, style transfer (applying artistic styles from reference images), and iterative refinement. Extract image URLs from the 'Image URLs: [...]' in the user's message. First image is always the main image to edit, additional images are style/context references.",
+      "Edit or modify existing images based on text instructions. Supports modifications like changing colors/lighting, adding/removing objects, style transfer. Returns edited image file path - auto-sent via output handler.",
     input_schema: {
       type: "object",
       properties: {
@@ -20,13 +19,12 @@ export const editImageTool: Tool = {
           type: "array",
           items: { type: "string" },
           description:
-            "Array of Telegram image URLs. First image is the main image to edit. Additional images serve as reference/style images for style transfer or context.",
+            "Array of image URLs. First image is the main image to edit. Additional images serve as reference/style images.",
         },
         aspectRatio: {
           type: "string",
           enum: ["1:1", "3:4", "4:3", "9:16", "16:9"],
-          description:
-            "Aspect ratio for the edited image. Only use if user explicitly requests a different aspect ratio than the original",
+          description: "Aspect ratio for the edited image. Only use if user explicitly requests different ratio.",
         },
       },
       required: ["prompt", "image_urls"],
@@ -35,69 +33,44 @@ export const editImageTool: Tool = {
   execute: async (toolInput, context) => {
     const prompt = toolInput.prompt as string;
     const image_urls = toolInput.image_urls as string[];
-    const aspectRatio = toolInput.aspectRatio as string | undefined;
+    const aspectRatio = toolInput.aspectRatio as "1:1" | "3:4" | "4:3" | "9:16" | "16:9" | undefined;
 
     if (!image_urls || image_urls.length === 0) {
-      return "No image URLs provided. Please attach an image or reply to a message containing an image.";
-    }
-
-    logger.info({ prompt, imageCount: image_urls.length, aspectRatio }, "Image editing request received");
-
-    if (context?.telegramCtx && context?.messageId) {
-      handleGeminiEditing(
-        { prompt, referenceImages: image_urls, aspectRatio },
-        context.telegramCtx,
-        context.messageId,
-      ).catch((error) =>
-        logger.error({ prompt, error: error instanceof Error ? error.message : error }, "Image editing failed"),
-      );
+      throw new Error("No image URLs provided. Please attach an image or reply to a message containing an image.");
     }
 
     const refCount = image_urls.length - 1;
-    return refCount > 0
-      ? `Editing image with Gemini AI (using ${refCount} reference image${refCount > 1 ? "s" : ""})`
-      : "Editing image with Gemini AI...";
-  },
-};
+    logger.info({ prompt, imageCount: image_urls.length, aspectRatio }, "Image editing request");
 
-async function handleGeminiEditing(
-  params: { prompt: string; referenceImages: string[]; aspectRatio?: string },
-  ctx: Context,
-  messageId: number,
-) {
-  const progress = createProgressHandler(ctx, messageId);
-
-  try {
-    const refCount = params.referenceImages.length - 1;
-    const statusText =
+    context?.progress?.message(
       refCount > 0
-        ? `🎨 Editing image with Gemini AI...\nUsing ${refCount} reference image${refCount > 1 ? "s" : ""} for style/context`
-        : "🎨 Editing image with Gemini AI...";
-
-    await progress.updateProgress({ text: statusText });
+        ? `🎨 Editing image (using ${refCount} reference${refCount > 1 ? "s" : ""})...`
+        : "🎨 Editing image...",
+    );
 
     const base64Image = await geminiClient.editImage({
-      prompt: params.prompt,
-      referenceImages: params.referenceImages,
-      aspectRatio: params.aspectRatio as "1:1" | "3:4" | "4:3" | "9:16" | "16:9" | undefined,
-    });
-    const imageBuffer = geminiClient.convertBase64ToBuffer(base64Image);
-
-    await progress.sendPhotoAndFile({
-      imageData: imageBuffer,
-      photoCaption: "Edited image",
-      filename: "edited.png",
-      fileCaption: "Full quality",
+      prompt,
+      referenceImages: image_urls,
+      aspectRatio,
     });
 
-    await progress.sendFinalMessage(`✅ Image edited\nPrompt: "${params.prompt}"`);
+    const buffer = Buffer.from(base64Image, "base64");
+    const tempPath = await saveTempFile(buffer, "png");
 
-    logger.info({ prompt: params.prompt }, "Image editing completed successfully");
-  } catch (error) {
-    logger.error(
-      { prompt: params.prompt, error: error instanceof Error ? error.message : error },
-      "Image editing failed in handler",
-    );
-    await progress.showError(`Image editing failed: ${error instanceof Error ? error.message : "Unknown error"}`);
-  }
-}
+    logger.info({ prompt }, "Image editing completed");
+
+    return {
+      success: true,
+      message: "Image edited successfully",
+      prompt,
+      files: [
+        {
+          path: tempPath,
+          mimeType: "image/png",
+          caption: "Edited image",
+          filename: "edited.png",
+        },
+      ],
+    };
+  },
+};

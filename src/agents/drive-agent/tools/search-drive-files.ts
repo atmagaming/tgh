@@ -1,5 +1,6 @@
 import type { Tool } from "agents/agent";
 import { logger } from "logger";
+import { getFilePath } from "services/google-drive/drive-folder-cache";
 import { type DriveFile, formatDriveFile, getDriveClient } from "services/google-drive/google-drive";
 
 export const searchDriveFilesTool: Tool = {
@@ -55,7 +56,14 @@ export const searchDriveFilesTool: Tool = {
       orderBy: "folder,name",
     });
 
-    const files: DriveFile[] = (response.data.files || []).map(formatDriveFile);
+    // Add full paths to files
+    const files: DriveFile[] = await Promise.all(
+      (response.data.files || []).map(async (file) => {
+        const parentId = file.parents?.[0];
+        const path = await getFilePath(parentId, file.name || "");
+        return formatDriveFile(file, path);
+      }),
+    );
 
     logger.info({ query, resultCount: files.length }, "Drive search completed");
 

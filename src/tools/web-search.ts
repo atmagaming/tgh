@@ -1,9 +1,6 @@
 import type { Tool } from "agents/agent";
-import type { Context } from "grammy";
 import { logger } from "logger";
 import { webSearch } from "services/perplexity";
-import { sendLongMessage } from "services/telegram";
-import { createProgressHandler } from "utils/progress-handler";
 
 export const webSearchTool: Tool = {
   definition: {
@@ -23,32 +20,14 @@ export const webSearchTool: Tool = {
   },
   execute: async (toolInput, context) => {
     const query = toolInput.query as string;
-    logger.info({ query }, "Web search request received");
+    logger.info({ query }, "Web search request");
 
-    if (context?.telegramCtx && context?.messageId) {
-      return await handleWebSearch(query, context.telegramCtx, context.messageId);
-    }
+    context?.progress?.message("🔍 Searching the web...");
 
-    return await webSearch(query);
-  },
-};
-
-async function handleWebSearch(query: string, ctx: Context, messageId: number) {
-  const progress = createProgressHandler(ctx, messageId);
-
-  try {
-    await progress.updateProgress({ text: "🔍 Searching the web..." });
     const result = await webSearch(query);
 
-    await sendLongMessage(ctx.api, `🔍 Web Search Results\n\n${result}`, {
-      chatId: ctx.chat?.id ?? 0,
-      threadId: ctx.message?.message_thread_id,
-    });
+    logger.info({ query, resultLength: result.length }, "Web search completed");
 
-    return result;
-  } catch (error) {
-    logger.error({ query, error: error instanceof Error ? error.message : error }, "Web search failed in handler");
-    await progress.showError(`Web search failed: ${error instanceof Error ? error.message : "Unknown error"}`);
-    throw error;
-  }
-}
+    return { query, result };
+  },
+};
