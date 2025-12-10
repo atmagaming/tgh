@@ -82,4 +82,19 @@ describe("markdownToTelegramHtml", () => {
     const input = "Line 1\nLine 2\n\nLine 3";
     expect(markdownToTelegramHtml(input)).toBe("Line 1\nLine 2\n\nLine 3");
   });
+
+  test("does not apply italic/bold inside code blocks", () => {
+    // This was causing malformed HTML: expected </i>, found </code>
+    expect(markdownToTelegramHtml("Use `*asterisk*` here")).toBe("Use <code>*asterisk*</code> here");
+    expect(markdownToTelegramHtml("Use `_underscore_` here")).toBe("Use <code>_underscore_</code> here");
+    expect(markdownToTelegramHtml("```\n*code*\n```")).toBe("<pre><code>*code*\n</code></pre>");
+  });
+
+  test("handles asterisks spanning across inline code", () => {
+    // Edge case: *italic `code*inside` more* - tags should be properly nested, not crossed
+    const input = "Start *word `code*here` end* finish";
+    const result = markdownToTelegramHtml(input);
+    // Valid nesting: <i>word <code>...</code> end</i> (italic wraps around code)
+    expect(result).toBe("Start <i>word <code>code*here</code> end</i> finish");
+  });
 });
