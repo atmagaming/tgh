@@ -1,13 +1,16 @@
 import { MasterAgent } from "agents/master-agent/master-agent";
 import { env } from "env";
 import { Bot } from "grammy";
-import { TelegramOutput } from "io";
+import { JobStoreOutput, OutputGroup, TelegramOutput } from "io";
 import { logger } from "logger";
 import { JobQueue } from "services/job-queue";
+import { JobStore } from "services/job-store";
 import { formatError, isBotMentioned, isImageDocument } from "utils";
+import { notifyJobSubscribers } from "web";
 
 export class App {
   readonly bot = new Bot(env.TELEGRAM_BOT_TOKEN);
+  readonly jobStore = new JobStore("./data/jobs", { maxJobs: 100 });
   private botUsername = "";
   private masterAgent = new MasterAgent();
   private jobQueue = new JobQueue();
@@ -20,7 +23,15 @@ export class App {
 
     // Set up job processor
     this.jobQueue.setHandler(async (job) => {
+      // Generate job ID for the job store
+      const storeJobId = this.jobStore.generateId();
+      let jobStoreOutput: JobStoreOutput | undefined;
+
       try {
+        // Create job link URL for web inspector
+        const baseUrl = env.BOT_MODE === "webhook" ? env.WEBHOOK_URL : `http://localhost:${env.PORT}`;
+        const jobLink = baseUrl ? `${baseUrl}/jobs/${storeJobId}` : undefined;
+
         // Create Telegram output using existing status message
         const telegramOutput = new TelegramOutput(
           job.ctx,
@@ -28,8 +39,26 @@ export class App {
           500, // debounceMs
           false, // verbose
           job.statusMessageId, // use existing message
+          jobLink,
         );
-        const statusMessage = telegramOutput.sendMessage({ text: "" });
+
+        // Create JobStoreOutput for persistence and web UI
+        jobStoreOutput = new JobStoreOutput(
+          this.jobStore,
+          storeJobId,
+          job.userMessage,
+          {
+            chatId: job.chatId,
+            messageId: job.messageId,
+            userId: job.ctx.from?.id,
+            username: job.ctx.from?.username,
+          },
+          notifyJobSubscribers,
+        );
+
+        // Combine outputs
+        const output = new OutputGroup([telegramOutput, jobStoreOutput]);
+        const statusMessage = output.sendMessage({ text: "" });
 
         const result = await this.masterAgent.processTask(job.userMessage, {
           telegramCtx: job.ctx,
@@ -39,12 +68,17 @@ export class App {
 
         if (!result.success) throw new Error(result.error ?? "Master agent task failed");
 
-        logger.info({ jobId: job.id }, "Master agent completed");
+        logger.info({ jobId: job.id, storeJobId }, "Master agent completed");
+
+        // Mark job as completed
+        jobStoreOutput.complete("completed");
 
         // Append final result to status message (keeping the status visible)
         if (result.result) statusMessage.append(`\n---\n${result.result}`);
       } catch (error) {
-        logger.error({ jobId: job.id, error: formatError(error) }, "Error processing job");
+        logger.error({ jobId: job.id, storeJobId, error: formatError(error) }, "Error processing job");
+        // Mark job as failed
+        jobStoreOutput?.complete("error");
         throw error; // Let job queue handle error reporting
       }
     });

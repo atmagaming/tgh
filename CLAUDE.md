@@ -24,7 +24,7 @@ bun run format       # Format with Biome
 - **Never add unnecessary `?` optional chaining** - if a value is always defined, don't mark it optional
 - **Interface vs abstract class**: Use interface when defining a contract with no shared implementation; use abstract class only when there's behavior to share
 
-## Testing Guidelines
+## Test Creation Guidelines
 
 - **Test functionality, not implementation details**. Avoid testing:
   - Agent/tool names, descriptions, or schema structures
@@ -50,10 +50,12 @@ When creating or updating agent system prompts:
 ## Tool Design Principles
 
 1. **Don't duplicate - refactor/update existing tools**
+
    - Before creating a new tool, check if an existing tool can be extended
    - Add parameters/overloads to existing tools instead of creating variants
 
 2. **Don't couple tools with output (Telegram/console)**
+
    - Tools return data (buffers, results) - NOT send to Telegram directly
    - Output is handled by the IO system (`src/io/`)
    - For file outputs, return `files: FileData[]` in the result

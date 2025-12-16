@@ -7,6 +7,7 @@ import { env } from "env";
 import { logger } from "logger";
 import type { DocumentWithEmbedding } from "services/openai/embeddings";
 import { embeddingsService } from "services/openai/embeddings";
+import { memorySyncService } from "./sync-service";
 
 // Binary format constants
 const CACHE_FILE = "./cache/memories.bin";
@@ -307,6 +308,131 @@ async function archiveNotionPage(pageId: string): Promise<void> {
 }
 
 // ============================================================================
+// Local Cache Helpers (for optimistic updates)
+// ============================================================================
+
+/** Add memory to local cache only (no Notion sync) */
+async function addMemoryLocal(content: string, id: string): Promise<void> {
+  await acquireLock();
+  try {
+    const cache = getCache();
+    const embedding = await embeddingsService.createEmbedding(content);
+    const now = new Date().toISOString();
+
+    cache.memories.push({
+      id,
+      content,
+      embedding,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    saveBinary(cache);
+  } finally {
+    releaseLock();
+  }
+}
+
+/** Update memory in local cache only (no Notion sync) */
+async function updateMemoryLocal(id: string, newContent: string): Promise<boolean> {
+  await acquireLock();
+  try {
+    const cache = getCache();
+    const index = cache.memories.findIndex((m) => m.id === id);
+    const existingMemory = cache.memories[index];
+    if (index === -1 || !existingMemory) return false;
+
+    const embedding = await embeddingsService.createEmbedding(newContent);
+
+    cache.memories[index] = {
+      ...existingMemory,
+      content: newContent,
+      embedding,
+      updatedAt: new Date().toISOString(),
+    };
+
+    saveBinary(cache);
+    return true;
+  } finally {
+    releaseLock();
+  }
+}
+
+/** Delete memory from local cache only (no Notion sync) */
+async function deleteMemoryLocal(id: string): Promise<boolean> {
+  await acquireLock();
+  try {
+    const cache = getCache();
+    const index = cache.memories.findIndex((m) => m.id === id);
+    if (index === -1) return false;
+
+    cache.memories.splice(index, 1);
+    saveBinary(cache);
+    return true;
+  } finally {
+    releaseLock();
+  }
+}
+
+/** Replace temp ID with real Notion ID in local cache */
+export async function replaceTempId(tempId: string, realId: string): Promise<void> {
+  await acquireLock();
+  try {
+    const cache = getCache();
+    const memory = cache.memories.find((m) => m.id === tempId);
+    if (memory) {
+      memory.id = realId;
+      saveBinary(cache);
+    }
+  } finally {
+    releaseLock();
+  }
+}
+
+// ============================================================================
+// Notion-Only Operations (for background queue)
+// ============================================================================
+
+/** Add to Notion only (called by sync service queue) */
+async function addMemoryToNotion(content: string): Promise<string> {
+  const id = await createNotionPage(content);
+  logger.info({ memoryId: id }, "Memory added to Notion");
+  return id;
+}
+
+/** Update in Notion only (called by sync service queue) */
+async function updateMemoryInNotion(id: string, content: string): Promise<boolean> {
+  try {
+    await updateNotionPage(id, content);
+    logger.info({ memoryId: id }, "Memory updated in Notion");
+    return true;
+  } catch (error) {
+    logger.error({ id, error: error instanceof Error ? error.message : error }, "Failed to update in Notion");
+    return false;
+  }
+}
+
+/** Delete from Notion only (called by sync service queue) */
+async function deleteMemoryFromNotion(id: string): Promise<boolean> {
+  try {
+    await archiveNotionPage(id);
+    logger.info({ memoryId: id }, "Memory deleted from Notion");
+    return true;
+  } catch (error) {
+    logger.warn({ id, error: error instanceof Error ? error.message : error }, "Failed to delete from Notion");
+    return false;
+  }
+}
+
+// Register functions with sync service
+memorySyncService.registerFunctions({
+  sync: syncWithNotionInternal,
+  add: addMemoryToNotion,
+  update: updateMemoryInNotion,
+  delete: deleteMemoryFromNotion,
+});
+
+// ============================================================================
 // Public API
 // ============================================================================
 
@@ -334,33 +460,19 @@ export async function searchMemories(query: string, topK = 5): Promise<(Memory &
     .filter((m): m is Memory & { similarity: number } => m !== null);
 }
 
-/** Add a new memory - creates in Notion first, then caches locally */
+/** Add a new memory - updates local cache immediately, queues Notion sync */
 export async function addMemory(content: string): Promise<string> {
-  // Create in Notion first to get the ID
-  const id = await createNotionPage(content);
-  const now = new Date().toISOString();
+  // Generate temp ID for immediate local use
+  const tempId = `temp_${crypto.randomUUID()}`;
 
-  await acquireLock();
-  try {
-    const cache = getCache();
-    const embedding = await embeddingsService.createEmbedding(content);
+  // Update local cache immediately (optimistic)
+  await addMemoryLocal(content, tempId);
+  logger.info({ memoryId: tempId }, "Memory added locally");
 
-    const memory: Memory = {
-      id,
-      content,
-      embedding,
-      createdAt: now,
-      updatedAt: now,
-    };
+  // Queue Notion sync in background
+  memorySyncService.queueAdd(content, tempId);
 
-    cache.memories.push(memory);
-    saveBinary(cache);
-
-    logger.info({ memoryId: id }, "Memory added");
-    return id;
-  } finally {
-    releaseLock();
-  }
+  return tempId;
 }
 
 /** Get a memory by ID */
@@ -369,64 +481,36 @@ export function getMemory(id: string): Memory | null {
   return cache.memories.find((m) => m.id === id) ?? null;
 }
 
-/** Update an existing memory */
+/** Update an existing memory - updates local cache immediately, queues Notion sync */
 export async function updateMemory(id: string, newContent: string): Promise<boolean> {
-  // Update in Notion first
-  try {
-    await updateNotionPage(id, newContent);
-  } catch (error) {
-    logger.error({ id, error: error instanceof Error ? error.message : error }, "Failed to update memory in Notion");
-    return false;
+  // Update local cache immediately (optimistic)
+  const success = await updateMemoryLocal(id, newContent);
+  if (!success) return false;
+
+  logger.info({ memoryId: id }, "Memory updated locally");
+
+  // Queue Notion sync in background (skip for temp IDs - they'll be synced when added)
+  if (!id.startsWith("temp_")) {
+    memorySyncService.queueUpdate(id, newContent);
   }
 
-  await acquireLock();
-  try {
-    const cache = getCache();
-    const index = cache.memories.findIndex((m) => m.id === id);
-    const existingMemory = cache.memories[index];
-    if (index === -1 || !existingMemory) return false;
-
-    const embedding = await embeddingsService.createEmbedding(newContent);
-
-    cache.memories[index] = {
-      ...existingMemory,
-      content: newContent,
-      embedding,
-      updatedAt: new Date().toISOString(),
-    };
-
-    saveBinary(cache);
-    logger.info({ memoryId: id }, "Memory updated");
-    return true;
-  } finally {
-    releaseLock();
-  }
+  return true;
 }
 
-/** Delete a memory */
+/** Delete a memory - updates local cache immediately, queues Notion sync */
 export async function deleteMemory(id: string): Promise<boolean> {
-  // Archive in Notion first
-  try {
-    await archiveNotionPage(id);
-  } catch (error) {
-    logger.warn({ id, error: error instanceof Error ? error.message : error }, "Failed to archive memory in Notion");
-    // Continue to delete locally even if Notion fails
+  // Delete from local cache immediately (optimistic)
+  const success = await deleteMemoryLocal(id);
+  if (!success) return false;
+
+  logger.info({ memoryId: id }, "Memory deleted locally");
+
+  // Queue Notion sync in background (skip for temp IDs - they don't exist in Notion yet)
+  if (!id.startsWith("temp_")) {
+    memorySyncService.queueDelete(id);
   }
 
-  await acquireLock();
-  try {
-    const cache = getCache();
-    const index = cache.memories.findIndex((m) => m.id === id);
-    if (index === -1) return false;
-
-    cache.memories.splice(index, 1);
-    saveBinary(cache);
-
-    logger.info({ memoryId: id }, "Memory deleted");
-    return true;
-  } finally {
-    releaseLock();
-  }
+  return true;
 }
 
 /** Get all memories */
@@ -434,8 +518,8 @@ export function getAllMemories(): Memory[] {
   return getCache().memories;
 }
 
-/** Sync local cache with Notion on startup */
-export async function syncWithNotion(): Promise<void> {
+/** Internal: Sync local cache with Notion (called by sync service) */
+async function syncWithNotionInternal(): Promise<void> {
   logger.info("Syncing memories with Notion...");
 
   try {
@@ -522,5 +606,14 @@ export async function syncWithNotion(): Promise<void> {
       { error: error instanceof Error ? error.message : error },
       "Failed to sync with Notion, using local cache",
     );
+    throw error; // Re-throw so sync service can handle it
   }
 }
+
+/** Trigger background sync with Notion (non-blocking) */
+export function syncWithNotion(): void {
+  memorySyncService.sync();
+}
+
+// Re-export sync service for UI access
+export { memorySyncService } from "./sync-service";

@@ -2,14 +2,6 @@ import { Box, Text } from "ink";
 import Spinner from "ink-spinner";
 import type { Block, BlockState } from "../types";
 
-// Get icon based on block type (agents and tools) or state (errors)
-function getIcon(block: Block): string {
-  if (block.content.type === "agent") return "🚀";
-  if (block.content.type === "tool") return "🔧";
-  if (block.state === "error") return "✖";
-  return "•";
-}
-
 // Convert snake_case to CamelCase
 function toCamelCase(name: string): string {
   return name
@@ -25,68 +17,17 @@ function formatName(name: string, type: "agent" | "tool"): string {
   return camelName;
 }
 
-// Truncate JSON values while keeping all keys visible, filter out 'success' key
-function truncateJson(obj: unknown, maxValueLen = 15): string {
-  if (obj === null || obj === undefined) return String(obj);
-  if (typeof obj === "string") {
-    return obj.length > maxValueLen ? `"${obj.substring(0, maxValueLen)}..."` : `"${obj}"`;
-  }
-  if (typeof obj === "number" || typeof obj === "boolean") return String(obj);
-  if (Array.isArray(obj)) {
-    if (obj.length === 0) return "[]";
-    return `[${obj.length} items]`;
-  }
-  if (typeof obj === "object") {
-    const entries = Object.entries(obj)
-      .filter(([k]) => k !== "success")
-      .map(([k, v]) => `${k}: ${truncateJson(v, maxValueLen)}`);
-    return entries.length > 0 ? `{ ${entries.join(", ")} }` : "";
-  }
-  return String(obj);
-}
-
 const stateColors: Record<BlockState, string> = {
   in_progress: "cyan",
   completed: "green",
   error: "red",
 };
 
-interface BlockViewProps {
-  block: Block;
-  depth?: number;
-  verbose: boolean;
-}
-
-function getBlockText(block: Block, verbose: boolean): string {
-  const content = block.content;
-  switch (content.type) {
-    case "agent": {
-      const name = formatName(content.name, "agent");
-      const text = verbose ? content.task : (content.summary ?? content.task);
-      if (content.result) return `${name}: ${text ?? "..."} → ${content.result}`;
-      return `${name}: ${text ?? "..."}`;
-    }
-    case "tool": {
-      const name = formatName(content.name, "tool");
-      const hasInput = content.input && typeof content.input === "object" && Object.keys(content.input).length > 0;
-      const inputStr = hasInput ? `(${truncateJson(content.input)})` : "";
-
-      if (content.error) return `${name}${inputStr}: ${content.error}`;
-
-      if (content.result) {
-        const resultStr = content.summary ?? truncateJson(content.result);
-        return `${name}${inputStr}: ${resultStr}`;
-      }
-
-      return `${name}${inputStr || "..."}`;
-    }
-    case "text":
-      return content.text;
-    case "file":
-      return content.data.filename ?? "file";
-    case "error":
-      return content.message;
-  }
+// Get status indicator based on state
+function getStatusIndicator(state: BlockState): string {
+  if (state === "completed") return "✓";
+  if (state === "error") return "✖";
+  return "...";
 }
 
 // Compute effective state: parent is in_progress if any child is in_progress
@@ -95,6 +36,75 @@ function getEffectiveState(block: Block): BlockState {
   const hasInProgressChild = block.children.some((c) => getEffectiveState(c) === "in_progress");
   if (hasInProgressChild) return "in_progress";
   return block.state;
+}
+
+interface BlockViewProps {
+  block: Block;
+  depth?: number;
+  verbose: boolean;
+}
+
+function AgentBlockView({ block, depth, verbose }: { block: Block; depth: number; verbose: boolean }) {
+  const content = block.content;
+  if (content.type !== "agent") return null;
+
+  const indent = "  ".repeat(depth);
+  const effectiveState = getEffectiveState(block);
+  const name = formatName(content.name, "agent");
+  // Show summary first (cleaned), then fall back to task
+  const summary = content.summary ?? content.task;
+  const status = getStatusIndicator(effectiveState);
+  const color = stateColors[effectiveState];
+
+  // Format: Name: summary [status]
+  return (
+    <Box flexDirection="column">
+      <Box>
+        <Text>{indent}</Text>
+        <Text color={color}>{name}</Text>
+        {summary && <Text>: {summary}</Text>}
+        <Text> </Text>
+        {effectiveState === "in_progress" ? <Spinner type="dots" /> : <Text color={color}>{status}</Text>}
+      </Box>
+      {/* Children (tools) */}
+      {block.children.map((child) => (
+        <BlockView key={child.id} block={child} depth={depth + 1} verbose={verbose} />
+      ))}
+    </Box>
+  );
+}
+
+function ToolBlockView({ block, depth, verbose }: { block: Block; depth: number; verbose: boolean }) {
+  const content = block.content;
+  if (content.type !== "tool") return null;
+
+  const indent = "  ".repeat(depth);
+  const effectiveState = getEffectiveState(block);
+  const name = formatName(content.name, "tool");
+  const status = getStatusIndicator(effectiveState);
+  const color = stateColors[effectiveState];
+
+  // Show only summary - no raw JSON
+  const summary = content.error ?? content.summary;
+
+  // Format: └ Name: summary [status]
+  return (
+    <Box flexDirection="column">
+      <Box>
+        <Text>{indent}└ </Text>
+        <Text color={color} bold>
+          {name}
+        </Text>
+        {summary && <Text>: {summary}</Text>}
+        <Text> </Text>
+        {effectiveState === "in_progress" ? <Spinner type="dots" /> : <Text color={color}>{status}</Text>}
+      </Box>
+      {/* Children */}
+      {block.children.map((child) => (
+        <BlockView key={child.id} block={child} depth={depth + 1} verbose={verbose} />
+      ))}
+    </Box>
+  );
 }
 
 export function BlockView({ block, depth = 0, verbose }: BlockViewProps) {
@@ -109,20 +119,33 @@ export function BlockView({ block, depth = 0, verbose }: BlockViewProps) {
     );
   }
 
-  // Indentation: depth 0 = none, depth 1 = " └ ", depth 2 = "   └ ", etc.
-  const prefix = depth > 0 ? `${"  ".repeat(depth - 1)} └ ` : "";
+  const content = block.content;
+
+  if (content.type === "agent") {
+    return <AgentBlockView block={block} depth={depth} verbose={verbose} />;
+  }
+
+  if (content.type === "tool") {
+    return <ToolBlockView block={block} depth={depth} verbose={verbose} />;
+  }
+
+  // Fallback for other block types (text, file, error)
+  const indent = "  ".repeat(depth);
   const effectiveState = getEffectiveState(block);
-  const icon = getIcon(block);
   const color = stateColors[effectiveState];
-  const text = getBlockText(block, verbose);
+
+  let text = "";
+  if (content.type === "text") text = content.text;
+  else if (content.type === "file") text = content.data.filename ?? "file";
+  else if (content.type === "error") text = content.message;
 
   return (
     <Box flexDirection="column">
       <Box>
-        <Text>{prefix}</Text>
-        {effectiveState === "in_progress" && <Spinner type="dots" />}
-        {effectiveState !== "in_progress" && <Text>{icon}</Text>}
-        <Text color={color}> {text}</Text>
+        <Text color={color}>
+          {indent}
+          {text}
+        </Text>
       </Box>
       {block.children.map((child) => (
         <BlockView key={child.id} block={child} depth={depth + 1} verbose={verbose} />

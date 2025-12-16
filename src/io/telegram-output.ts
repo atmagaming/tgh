@@ -14,14 +14,6 @@ type Operation =
   | { type: "addFile"; file: FileData }
   | { type: "clear" };
 
-// Get icon based on block type (agents and tools) or state (errors)
-function getIcon(block: Block): string {
-  if (block.content.type === "agent") return "🚀";
-  if (block.content.type === "tool") return "🔧";
-  if (block.state === "error") return "✖";
-  return "•";
-}
-
 // Convert snake_case to CamelCase
 function toCamelCase(name: string): string {
   return name
@@ -37,56 +29,19 @@ function formatName(name: string, type: "agent" | "tool"): string {
   return camelName;
 }
 
-// Truncate JSON values while keeping all keys visible, filter out 'success' key
-function truncateJson(obj: unknown, maxValueLen = 15): string {
-  if (obj === null || obj === undefined) return String(obj);
-  if (typeof obj === "string") {
-    return obj.length > maxValueLen ? `"${obj.substring(0, maxValueLen)}..."` : `"${obj}"`;
-  }
-  if (typeof obj === "number" || typeof obj === "boolean") return String(obj);
-  if (Array.isArray(obj)) {
-    if (obj.length === 0) return "[]";
-    return `[${obj.length} items]`;
-  }
-  if (typeof obj === "object") {
-    const entries = Object.entries(obj)
-      .filter(([k]) => k !== "success")
-      .map(([k, v]) => `${k}: ${truncateJson(v, maxValueLen)}`);
-    return entries.length > 0 ? `{ ${entries.join(", ")} }` : "";
-  }
-  return String(obj);
+// Get status indicator based on state
+function getStatusIndicator(state: BlockState): string {
+  if (state === "completed") return "✓";
+  if (state === "error") return "✖";
+  return "...";
 }
 
-function getBlockText(block: Block, verbose: boolean): string {
-  const content = block.content;
-  switch (content.type) {
-    case "agent": {
-      const name = formatName(content.name, "agent");
-      const text = verbose ? content.task : (content.summary ?? content.task);
-      if (content.result) return `${name}: ${text ?? "..."} → ${content.result}`;
-      return `${name}: ${text ?? "..."}`;
-    }
-    case "tool": {
-      const name = formatName(content.name, "tool");
-      const hasInput = content.input && typeof content.input === "object" && Object.keys(content.input).length > 0;
-      const inputStr = hasInput ? `(${truncateJson(content.input)})` : "";
-
-      if (content.error) return `${name}${inputStr}: ${content.error}`;
-
-      if (content.result) {
-        const resultStr = content.summary ?? truncateJson(content.result);
-        return `${name}${inputStr}: ${resultStr}`;
-      }
-
-      return `${name}${inputStr || "..."}`;
-    }
-    case "text":
-      return content.text;
-    case "file":
-      return content.data.filename ?? "file";
-    case "error":
-      return content.message;
-  }
+// Compute effective state: parent is in_progress if any child is in_progress
+function getEffectiveState(block: Block): BlockState {
+  if (block.state === "error") return "error";
+  const hasInProgressChild = block.children.some((c) => getEffectiveState(c) === "in_progress");
+  if (hasInProgressChild) return "in_progress";
+  return block.state;
 }
 
 function formatBlock(block: Block, verbose: boolean, depth = 0): string {
@@ -95,18 +50,57 @@ function formatBlock(block: Block, verbose: boolean, depth = 0): string {
     return block.children.map((child) => formatBlock(child, verbose, depth)).join("\n");
   }
 
-  // Indentation: depth 0 = none, depth 1 = " └ ", depth 2 = "   └ ", etc.
-  const prefix = depth > 0 ? `${"  ".repeat(depth - 1)} └ ` : "";
-  const icon = getIcon(block);
-  const text = getBlockText(block, verbose);
-  const line = `${prefix}${icon} ${text}`;
+  const indent = "  ".repeat(depth);
+  const content = block.content;
+  const effectiveState = getEffectiveState(block);
+  const status = getStatusIndicator(effectiveState);
 
-  const childLines = block.children.map((child) => formatBlock(child, verbose, depth + 1));
-  return [line, ...childLines].join("\n");
+  if (content.type === "agent") {
+    const name = formatName(content.name, "agent");
+    // Show summary first (cleaned), then fall back to task
+    const summary = content.summary ?? content.task;
+
+    // Format: Name: summary [status]
+    let line = `${indent}${name}`;
+    if (summary) line += `: ${summary}`;
+    line += ` ${status}`;
+
+    // Add children
+    const childLines = block.children.map((child) => formatBlock(child, verbose, depth + 1)).filter(Boolean);
+    if (childLines.length > 0) return `${line}\n${childLines.join("\n")}`;
+    return line;
+  }
+
+  if (content.type === "tool") {
+    const name = formatName(content.name, "tool");
+    // Show only summary - no raw JSON
+    const summary = content.error ?? content.summary;
+
+    // Format: └ <b>ToolName</b>: summary [status]
+    let line = `${indent}└ <b>${name}</b>`;
+    if (summary) line += `: ${summary}`;
+    line += ` ${status}`;
+
+    return line;
+  }
+
+  if (content.type === "text") return `${indent}${content.text}`;
+  if (content.type === "file") return `${indent}${content.data.filename ?? "file"}`;
+  if (content.type === "error") return `${indent}${content.message}`;
+
+  return "";
 }
 
-function formatBlocks(blocks: Block[], verbose: boolean): string {
-  return blocks.map((block) => formatBlock(block, verbose)).join("\n");
+function formatBlocks(blocks: Block[], verbose: boolean, jobLink?: string): string {
+  const blockText = blocks.map((block) => formatBlock(block, verbose)).join("\n");
+  if (jobLink) {
+    // Check if any block is still in progress
+    const isProcessing = blocks.some((b) => getEffectiveState(b) === "in_progress");
+    const linkText = isProcessing ? "Processing..." : "Job Details";
+    // Use markdown link syntax - will be converted to HTML by markdownToTelegramHtml
+    return `[${linkText}](${jobLink})\n${blockText}`;
+  }
+  return blockText;
 }
 
 class TelegramBlockHandle implements BlockHandle {
@@ -155,30 +149,30 @@ class TelegramBlockHandle implements BlockHandle {
   }
 
   private triggerSummarization(): void {
-    const input = this.getContentForSummary();
-    summarizer.summarize(input).then((summary) => {
-      if ("summary" in this.block.content) {
-        (this.block.content as { summary?: string }).summary = summary;
-        this.updateFn();
-      }
-    });
-  }
-
-  private getContentForSummary(): string {
     const content = this.block.content;
-    switch (content.type) {
-      case "agent":
-        return `Agent ${content.name} task: ${content.task}`;
-      case "tool": {
-        const parts: string[] = [`Tool ${content.name}`];
-        if (content.input) parts.push(`input: ${JSON.stringify(content.input)}`);
-        if (content.result) parts.push(`result: ${JSON.stringify(content.result)}`);
-        return parts.join(", ");
-      }
-      case "text":
-        return content.text;
-      default:
-        return JSON.stringify(content);
+
+    if (content.type === "tool") {
+      summarizer
+        .summarizeTool({
+          toolName: content.name,
+          input: content.input,
+          output: content.result,
+        })
+        .then((summary) => {
+          (content as { summary?: string }).summary = summary;
+          this.updateFn();
+        });
+    } else if (content.type === "agent") {
+      summarizer
+        .summarizeAgent({
+          agentName: content.name,
+          task: content.task ?? "unknown task",
+          result: content.result,
+        })
+        .then((summary) => {
+          (content as { summary?: string }).summary = summary;
+          this.updateFn();
+        });
     }
   }
 }
@@ -201,6 +195,7 @@ class TelegramMessageHandle implements MessageHandle {
     private readonly debounceMs = 500,
     private readonly verbose = false,
     existingMessageId?: number,
+    private readonly jobLink?: string,
   ) {
     this.text = content.text;
     if (existingMessageId) {
@@ -225,7 +220,7 @@ class TelegramMessageHandle implements MessageHandle {
   }
 
   private updateBlocksDisplay(): void {
-    const blockText = formatBlocks(this.blocks, this.verbose);
+    const blockText = formatBlocks(this.blocks, this.verbose, this.jobLink);
     this.replaceWith(blockText);
   }
 
@@ -441,6 +436,7 @@ export class TelegramOutput implements Output {
     private readonly debounceMs = 500,
     private readonly verbose = false,
     private readonly existingMessageId?: number,
+    private readonly jobLink?: string,
   ) {}
 
   sendMessage(content: MessageContent): MessageHandle {
@@ -451,6 +447,7 @@ export class TelegramOutput implements Output {
       this.debounceMs,
       this.verbose,
       this.existingMessageId,
+      this.jobLink,
     );
   }
 }

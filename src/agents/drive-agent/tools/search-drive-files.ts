@@ -53,6 +53,13 @@ Examples:
     const maxResults = Math.min((toolInput.max_results as number) ?? 50, 500);
     const includePaths = (toolInput.include_paths as boolean) ?? true;
 
+    // Validate folder ID length if provided
+    if (folderId && folderId.length < 20) {
+      return {
+        error: `Invalid folder ID "${folderId}" - appears truncated (${folderId.length} chars). Google Drive IDs are 28-33 characters. Use get_folder_id with the folder name instead.`,
+      };
+    }
+
     logger.info({ query: queryStr, folderId, maxResults }, "Searching Drive files");
 
     const query = parseQuery(queryStr);
@@ -65,7 +72,15 @@ Examples:
       parentPaths = tree.pathMap;
     }
 
-    const result = await searchFiles(query, { maxResults, parentPaths });
+    const result = await searchFiles(query, { maxResults, parentPaths }).catch((error: unknown) => {
+      const driveError = error as { code?: number; message?: string };
+      if (driveError.code === 404) {
+        throw new Error(
+          `Google Drive API: Folder "${folderId}" not found or not accessible. Verify the ID is complete and correct.`,
+        );
+      }
+      throw new Error(`Google Drive API error: ${driveError.message ?? "Unknown error"}`);
+    });
 
     logger.info(
       {

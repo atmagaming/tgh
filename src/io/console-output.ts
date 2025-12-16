@@ -51,30 +51,30 @@ class ConsoleBlockHandle implements BlockHandle {
   }
 
   private triggerSummarization(): void {
-    const input = this.getContentForSummary();
-    summarizer.summarize(input).then((summary) => {
-      if ("summary" in this.block.content) {
-        (this.block.content as { summary?: string }).summary = summary;
-        this.rerenderFn();
-      }
-    });
-  }
-
-  private getContentForSummary(): string {
     const content = this.block.content;
-    switch (content.type) {
-      case "agent":
-        return `Agent ${content.name} task: ${content.task}`;
-      case "tool": {
-        const parts: string[] = [`Tool ${content.name}`];
-        if (content.input) parts.push(`input: ${JSON.stringify(content.input)}`);
-        if (content.result) parts.push(`result: ${JSON.stringify(content.result)}`);
-        return parts.join(", ");
-      }
-      case "text":
-        return content.text;
-      default:
-        return JSON.stringify(content);
+
+    if (content.type === "tool") {
+      summarizer
+        .summarizeTool({
+          toolName: content.name,
+          input: content.input,
+          output: content.result,
+        })
+        .then((summary) => {
+          (content as { summary?: string }).summary = summary;
+          this.rerenderFn();
+        });
+    } else if (content.type === "agent") {
+      summarizer
+        .summarizeAgent({
+          agentName: content.name,
+          task: content.task ?? "unknown task",
+          result: content.result,
+        })
+        .then((summary) => {
+          (content as { summary?: string }).summary = summary;
+          this.rerenderFn();
+        });
     }
   }
 }

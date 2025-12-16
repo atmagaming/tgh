@@ -2,6 +2,7 @@ export * from "./cli-input";
 export * from "./console-output";
 export * from "./file-output";
 export * from "./input";
+export * from "./job-store-output";
 export * from "./output";
 export * from "./output-group";
 export * from "./telegram-input";
