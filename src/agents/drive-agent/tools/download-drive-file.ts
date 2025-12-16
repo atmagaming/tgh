@@ -23,15 +23,32 @@ export const downloadDriveFileTool: Tool = {
   execute: async (toolInput) => {
     const fileId = toolInput.file_id as string;
 
+    // Validate file ID length - Google Drive IDs are typically 28-33 characters
+    if (fileId.length < 20) {
+      return {
+        error: `Invalid file ID "${fileId}" - appears truncated (${fileId.length} chars). Google Drive IDs are 28-33 characters. Use search_drive_files to find the file first.`,
+      };
+    }
+
     logger.info({ fileId }, "Downloading Drive file");
 
     const drive = getDriveClient();
 
     // Get file metadata
-    const metadata = await drive.files.get({
-      fileId,
-      fields: "id, name, mimeType, size",
-    });
+    const metadata = await drive.files
+      .get({
+        fileId,
+        fields: "id, name, mimeType, size",
+      })
+      .catch((error: unknown) => {
+        const gaxiosError = error as { code?: number; message?: string };
+        if (gaxiosError.code === 404) {
+          throw new Error(
+            `Google Drive API: File "${fileId}" not found or not accessible. Verify the ID is complete and correct.`,
+          );
+        }
+        throw new Error(`Google Drive API error: ${gaxiosError.message ?? "Unknown error"}`);
+      });
 
     const fileName = metadata.data.name ?? "download";
     const mimeType = metadata.data.mimeType ?? "application/octet-stream";

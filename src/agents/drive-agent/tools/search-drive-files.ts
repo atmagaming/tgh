@@ -40,6 +40,13 @@ export const searchDriveFilesTool: Tool = {
     const folderId = toolInput.folder_id as string | undefined;
     const pageSize = Math.min((toolInput.page_size as number) || 50, 1000);
 
+    // Validate folder ID length if provided
+    if (folderId && folderId.length < 20) {
+      return {
+        error: `Invalid folder ID "${folderId}" - appears truncated (${folderId.length} chars). Google Drive IDs are 28-33 characters. Use get_folder_id with the folder name instead.`,
+      };
+    }
+
     logger.info({ query, mimeType, folderId, pageSize }, "Searching Drive files");
 
     const queryParts = [`name contains '${query}'`, "trashed = false"];
@@ -49,12 +56,22 @@ export const searchDriveFilesTool: Tool = {
     const searchQuery = queryParts.join(" and ");
 
     const drive = getDriveClient();
-    const response = await drive.files.list({
-      q: searchQuery,
-      pageSize,
-      fields: "files(id, name, mimeType, size, createdTime, modifiedTime, parents, webViewLink, iconLink)",
-      orderBy: "folder,name",
-    });
+    const response = await drive.files
+      .list({
+        q: searchQuery,
+        pageSize,
+        fields: "files(id, name, mimeType, size, createdTime, modifiedTime, parents, webViewLink, iconLink)",
+        orderBy: "folder,name",
+      })
+      .catch((error: unknown) => {
+        const gaxiosError = error as { code?: number; message?: string };
+        if (gaxiosError.code === 404) {
+          throw new Error(
+            `Google Drive API: Folder "${folderId}" not found or not accessible. Verify the ID is complete and correct.`,
+          );
+        }
+        throw new Error(`Google Drive API error: ${gaxiosError.message ?? "Unknown error"}`);
+      });
 
     // Add full paths to files
     const files: DriveFile[] = await Promise.all(
