@@ -1,11 +1,11 @@
+import { tool } from "@openai/agents";
 import type { Readable } from "node:stream";
 import { logger } from "logger";
 import { getDriveClient } from "services/google-drive/google-drive";
-import { createTool } from "tools/sdk-tool";
 import { saveTempFile } from "utils/files";
 import { z } from "zod";
 
-export const downloadDriveFileTool = createTool({
+export const downloadDriveFileTool = tool({
   name: "download_drive_file",
   description:
     "Download a file from Google Drive to a local temp file. Returns the file path for further processing (upload to Drive, analyze, use as reference). The file will be automatically sent to the user via output handler.",
@@ -14,7 +14,7 @@ export const downloadDriveFileTool = createTool({
       .string()
       .describe("The ID of the file to download. Get this from list_drive_files or search_drive_files."),
   }),
-  execute: async ({ file_id }, _context) => {
+  execute: async ({ file_id }) => {
     // Validate file ID length - Google Drive IDs are typically 28-33 characters
     if (file_id.length < 20) {
       return {

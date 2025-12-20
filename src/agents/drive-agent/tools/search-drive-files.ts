@@ -1,10 +1,10 @@
+import { tool } from "@openai/agents";
 import { logger } from "logger";
 import { parseQuery, searchFiles } from "services/google-drive/drive-search";
 import { buildTree } from "services/google-drive/drive-tree";
-import { createTool } from "tools/sdk-tool";
 import { z } from "zod";
 
-export const searchDriveFilesTool = createTool({
+export const searchDriveFilesTool = tool({
   name: "search_drive_files",
   description: `Search Google Drive with rich query syntax.
 
@@ -30,7 +30,7 @@ Examples:
     max_results: z.number().optional().describe("Maximum results (default: 50, max: 500)"),
     include_paths: z.boolean().optional().describe("Build full paths (slower but more useful). Default: true"),
   }),
-  execute: async ({ query: queryStr, folder_id, max_results, include_paths }, _context) => {
+  execute: async ({ query: queryStr, folder_id, max_results, include_paths }) => {
     const maxResults = Math.min(max_results ?? 50, 500);
     const includePaths = include_paths ?? true;
 

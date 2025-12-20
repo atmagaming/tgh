@@ -1,9 +1,9 @@
+import { tool } from "@openai/agents";
 import { logger } from "logger";
 import { buildTree, formatTreeAscii } from "services/google-drive/drive-tree";
-import { createTool } from "tools/sdk-tool";
 import { z } from "zod";
 
-export const treeDriveTool = createTool({
+export const treeDriveTool = tool({
   name: "tree_drive",
   description:
     "Display Google Drive folder hierarchy as a tree. Shows structure with IDs, names, types. Useful for understanding folder organization before searching or uploading.",
@@ -14,7 +14,7 @@ export const treeDriveTool = createTool({
     show_ids: z.boolean().optional().describe("Show file/folder IDs (default: true)"),
     show_size: z.boolean().optional().describe("Show file sizes (default: false)"),
   }),
-  execute: async ({ folder_id, depth, show_files, show_ids, show_size }, _context) => {
+  execute: async ({ folder_id, depth, show_files, show_ids, show_size }) => {
     const maxDepth = Math.min(depth ?? 3, 5);
     const showFiles = show_files ?? true;
     const showIds = show_ids ?? true;

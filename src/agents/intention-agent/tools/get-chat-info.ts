@@ -1,9 +1,9 @@
+import { tool } from "@openai/agents";
 import { logger } from "logger";
 import { gramjsClient } from "services/telegram";
-import { createTool } from "tools/sdk-tool";
 import { z } from "zod";
 
-export const getChatInfoTool = createTool({
+export const getChatInfoTool = tool({
   name: "get_chat_info",
   description:
     "Get overall information about the current Telegram chat including total message count, participant details, chat title, and basic statistics. Use when user asks about the chat overview, participant list, or general chat information.",

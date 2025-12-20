@@ -1,9 +1,9 @@
+import { tool } from "@openai/agents";
 import { logger } from "logger";
 import { buildTree, loadChildren } from "services/google-drive/drive-tree";
-import { createTool } from "tools/sdk-tool";
 import { z } from "zod";
 
-export const listDriveFilesTool = createTool({
+export const listDriveFilesTool = tool({
   name: "list_drive_files",
   description:
     "List files and folders in Google Drive. Returns detailed info including IDs, names, types, sizes. Use this to explore Drive folders or find files by browsing.",
@@ -15,7 +15,7 @@ export const listDriveFilesTool = createTool({
       .optional()
       .describe("Include full paths (requires extra API calls). Default: false for listing."),
   }),
-  execute: async ({ folder_id, page_size, include_paths }, _context) => {
+  execute: async ({ folder_id, page_size, include_paths }) => {
     const pageSize = Math.min(page_size ?? 100, 1000);
     const includePaths = include_paths ?? false;
 

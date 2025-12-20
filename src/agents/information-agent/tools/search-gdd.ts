@@ -1,9 +1,9 @@
+import { tool } from "@openai/agents";
 import { logger } from "logger";
 import { notionClient } from "services/notion/notion-client";
-import { createTool } from "tools/sdk-tool";
 import { z } from "zod";
 
-export const searchGDDTool = createTool({
+export const searchGDDTool = tool({
   name: "search_gdd",
   description:
     "Search the Game Design Document (GDD) in Notion for specific topics, features, or design decisions. Use when user asks about game design, mechanics, systems, or anything defined in the GDD. Returns matching pages with titles and URLs.",

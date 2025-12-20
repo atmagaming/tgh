@@ -1,9 +1,9 @@
+import { tool } from "@openai/agents";
 import { logger } from "logger";
 import { notionClient } from "services/notion/notion-client";
-import { createTool } from "tools/sdk-tool";
 import { z } from "zod";
 
-export const getGDDPageTool = createTool({
+export const getGDDPageTool = tool({
   name: "get_gdd_page",
   description:
     "Get the full content of a specific GDD page in Notion. Use after searching to read the actual content. Returns the page content in markdown format with all nested blocks.",

@@ -1,8 +1,8 @@
+import { tool } from "@openai/agents";
 import { geminiClient } from "services/gemini/gemini";
-import { createTool } from "tools/sdk-tool";
 import { z } from "zod";
 
-export const analyzeImageTool = createTool({
+export const analyzeImageTool = tool({
   name: "analyze_image",
   description:
     "Analyze one or more images using Gemini Nano Banana. The tool converts a user question into a structured visual-analysis prompt that guides accurate image understanding, reasoning, and description. Returns { texts: string[] }.",

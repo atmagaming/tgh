@@ -1,27 +1,27 @@
+import { tool } from "@openai/agents";
 import type { FileData } from "io/output";
 import { logger } from "logger";
 import { meshyClient } from "services/meshy/meshy";
-import { createTool } from "tools/sdk-tool";
 import { z } from "zod";
 
-export const generate3DFromImageTool = createTool({
+export const generate3DFromImageTool = tool({
   name: "generate_3d_from_image",
   description:
     "Generate a 3D model from an image URL. Long-running operation with progress updates. Returns GLB/FBX model files.",
   parameters: z.object({
     image_url: z.string().describe("The URL of the image to convert to 3D"),
   }),
-  execute: async ({ image_url }, context) => {
+  execute: async ({ image_url }) => {
     logger.info({ image_url }, "3D generation request");
 
-    context.onProgress?.({ type: "status", message: "Starting 3D generation..." });
+    // context.onProgress?.({ type: "status", message: "Starting 3D generation..." });
 
     const taskId = await meshyClient.createImageTo3D({ image_url });
     logger.info({ taskId, image_url }, "3D generation task created");
 
     // Poll for completion with progress updates
-    const finalTask = await meshyClient.pollTask(taskId, (task) => {
-      context.onProgress?.({ type: "status", message: `${task.status}: ${task.progress}%` });
+    const finalTask = await meshyClient.pollTask(taskId, (_task) => {
+      // context.onProgress?.({ type: "status", message: `${task.status}: ${task.progress}%` });
     });
 
     if (finalTask.status !== "SUCCEEDED") {

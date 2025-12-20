@@ -1,12 +1,12 @@
+import { tool } from "@openai/agents";
 import { getAllMemories } from "services/memory/memory-store";
-import { createTool } from "tools/sdk-tool";
 import { z } from "zod";
 
-export const listMemoriesTool = createTool({
+export const listMemoriesTool = tool({
   name: "list_memories",
   description: "List all stored memories with their IDs, content, and timestamps",
   parameters: z.object({}),
-  execute: async () => {
+  execute: () => {
     const memories = getAllMemories();
 
     return {

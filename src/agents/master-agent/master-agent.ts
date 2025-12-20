@@ -70,7 +70,4 @@ export const masterAgent = new Agent({
       }),
     ),
   }),
-  modelSettings: {
-    text: { verbosity: "low" },
-  },
 });

@@ -1,7 +1,7 @@
 import { JobProvider, Main } from "app-view";
 import { env } from "env";
 import { Bot } from "grammy";
-import { ConsoleRenderer, GroupRenderer, TelegramRenderer } from "io/output";
+import { GroupRenderer, TelegramRenderer } from "io/output";
 import { Job } from "jobs/job";
 import { JobQueue } from "jobs/job-queue";
 import { logger } from "logger";

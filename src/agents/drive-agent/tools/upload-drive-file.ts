@@ -1,14 +1,13 @@
+import { tool } from "@openai/agents";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { Readable } from "node:stream";
-import { env } from "env";
 import { logger } from "logger";
 import { getDriveClient } from "services/google-drive/google-drive";
-import { createTool } from "tools/sdk-tool";
 import { detectMimeType } from "utils/files";
 import { z } from "zod";
 
-export const uploadDriveFileTool = createTool({
+export const uploadDriveFileTool = tool({
   name: "upload_drive_file",
   description:
     "Upload a file to Google Drive. Accepts multiple input types: Telegram message_id, local file path, URL, or base64 data. IMPORTANT: You must specify a folder_id - service accounts cannot upload to root.",
@@ -34,17 +33,18 @@ export const uploadDriveFileTool = createTool({
       .describe("Destination folder ID. REQUIRED. Get from list_drive_files or create with create_drive_folder."),
     file_name: z.string().optional().describe("Custom filename for Drive. If not provided, inferred from source."),
   }),
-  execute: async ({ message_id, file_path, url, base64_data, mime_type, folder_id, file_name }, context) => {
+  execute: async ({ message_id, file_path, url, base64_data, mime_type, folder_id, file_name }) => {
     let buffer: Buffer;
     let inferredFileName: string;
     let mimeType: string;
 
     // Option 1: Telegram message
-    if (message_id && context?.telegramContext) {
-      const result = await getFileFromTelegram(message_id, context.telegramContext);
-      buffer = result.buffer;
-      inferredFileName = result.fileName;
-      mimeType = result.mimeType;
+    if (message_id) {
+      // const result = await getFileFromTelegram(message_id, context.telegramContext);
+      // buffer = result.buffer;
+      // inferredFileName = result.fileName;
+      // mimeType = result.mimeType;
+      throw new Error("Uploading from Telegram message_id is temporarily disabled (no context)");
     }
     // Option 2: Local file path
     else if (file_path) {
@@ -98,48 +98,6 @@ export const uploadDriveFileTool = createTool({
     };
   },
 });
-
-async function getFileFromTelegram(
-  messageId: number,
-  ctx: import("grammy").Context,
-): Promise<{ buffer: Buffer; fileName: string; mimeType: string }> {
-  const chatId = ctx.chat?.id;
-  if (!chatId) throw new Error("No chat context");
-
-  // Forward message to get file info
-  const message = await ctx.api.forwardMessage(chatId, chatId, messageId);
-
-  let fileId: string | undefined;
-  let fileName: string;
-  let mimeType: string;
-
-  if (message.document) {
-    fileId = message.document.file_id;
-    fileName = message.document.file_name ?? "document";
-    mimeType = message.document.mime_type ?? "application/octet-stream";
-  } else if (message.photo) {
-    fileId = message.photo.at(-1)?.file_id;
-    fileName = "photo.jpg";
-    mimeType = "image/jpeg";
-  } else if (message.video) {
-    fileId = message.video.file_id;
-    fileName = message.video.file_name ?? "video.mp4";
-    mimeType = message.video.mime_type ?? "video/mp4";
-  } else {
-    throw new Error("No file found in message");
-  }
-
-  if (!fileId) throw new Error("File ID not found");
-
-  const file = await ctx.api.getFile(fileId);
-  const fileUrl = `https://api.telegram.org/file/bot${env.TELEGRAM_BOT_TOKEN}/${file.file_path}`;
-
-  const response = await fetch(fileUrl);
-  if (!response.ok) throw new Error(`Failed to download from Telegram: ${response.statusText}`);
-
-  const arrayBuffer = await response.arrayBuffer();
-  return { buffer: Buffer.from(arrayBuffer), fileName, mimeType };
-}
 
 async function getFileFromUrl(url: string): Promise<{ buffer: Buffer; fileName: string; mimeType: string }> {
   const response = await fetch(url);

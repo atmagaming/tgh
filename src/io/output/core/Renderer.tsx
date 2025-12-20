@@ -19,7 +19,8 @@ function hasContentOutsideMessages(node: OutputNode): boolean {
 }
 
 export interface RendererOptions {
-  debounceMs?: number;
+  /** Preferred name: how often commits are allowed to happen while rendering continuously. */
+  throttleMs?: number;
 }
 
 export interface IRenderer {
@@ -27,14 +28,14 @@ export interface IRenderer {
 }
 
 export abstract class Renderer implements IRenderer {
-  private readonly debounceMs: number;
-  private debounceTimer?: Timer;
+  private readonly throttleMs: number;
+  private throttleTimer?: Timer;
   private currentRoot?: ElementNode;
   private isCommitting = false;
   private needsCommit = false;
 
-  constructor({ debounceMs = 500 }: RendererOptions = {}) {
-    this.debounceMs = debounceMs;
+  constructor({ throttleMs = 500 }: RendererOptions = {}) {
+    this.throttleMs = throttleMs;
   }
 
   render(element: ReactNode): Promise<void> {
@@ -81,21 +82,24 @@ export abstract class Renderer implements IRenderer {
     });
   }
 
-  /** Schedule a debounced commit - batches rapid updates */
+  /** Schedule a commit at a fixed rate (throttleMs). */
   private scheduleCommit(): void {
-    clearTimeout(this.debounceTimer);
-    this.debounceTimer = setTimeout(() => void this.doCommit(), this.debounceMs);
+    if (this.throttleTimer) return;
+    this.throttleTimer = setTimeout(() => {
+      this.throttleTimer = undefined;
+      void this.doCommit({ flush: false });
+    }, this.throttleMs);
   }
 
   /** Flush any pending commit immediately */
   private async flushCommit(): Promise<void> {
-    clearTimeout(this.debounceTimer);
-    this.debounceTimer = undefined;
-    await this.doCommit();
+    clearTimeout(this.throttleTimer);
+    this.throttleTimer = undefined;
+    await this.doCommit({ flush: true });
   }
 
   /** Execute the actual commit - serializes concurrent calls */
-  private async doCommit(): Promise<void> {
+  private async doCommit({ flush }: { flush: boolean }): Promise<void> {
     if (!this.currentRoot) return;
 
     if (this.isCommitting) {
@@ -123,7 +127,11 @@ export abstract class Renderer implements IRenderer {
 
       if (this.needsCommit) {
         this.needsCommit = false;
-        await this.doCommit();
+        if (flush) {
+          await this.doCommit({ flush: true });
+        } else {
+          this.scheduleCommit();
+        }
       }
     }
   }

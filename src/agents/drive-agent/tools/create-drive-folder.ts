@@ -1,9 +1,9 @@
+import { tool } from "@openai/agents";
 import { logger } from "logger";
 import { type DriveFile, formatDriveFile, getDriveClient } from "services/google-drive/google-drive";
-import { createTool } from "tools/sdk-tool";
 import { z } from "zod";
 
-export const createDriveFolderTool = createTool({
+export const createDriveFolderTool = tool({
   name: "create_drive_folder",
   description:
     "Create a new folder in Google Drive. The folder will be created inside the specified parent folder (which must be shared with the bot). Returns the new folder's ID which can be used for uploading files.",
@@ -15,7 +15,7 @@ export const createDriveFolderTool = createTool({
         "The ID of the parent folder where to create the new folder. This must be a folder shared with the bot. Get folder IDs from list_drive_files or search_drive_files.",
       ),
   }),
-  execute: async ({ name, parent_folder_id }, _context) => {
+  execute: async ({ name, parent_folder_id }) => {
     logger.info({ name, parentFolderId: parent_folder_id }, "Creating Drive folder");
 
     const drive = getDriveClient();

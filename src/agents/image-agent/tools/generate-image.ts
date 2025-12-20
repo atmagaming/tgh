@@ -1,9 +1,9 @@
+import { tool } from "@openai/agents";
 import { geminiClient } from "services/gemini/gemini";
-import { createTool } from "tools/sdk-tool";
 import { saveTempFile } from "utils";
 import { z } from "zod";
 
-export const generateImageTool = createTool({
+export const generateImageTool = tool({
   name: "generate_image",
   description:
     "Generate NEW images or EDIT existing ones using Gemini Nano Banana. Supports creation, targeted edits, style transfer, and character consistency. The tool expects a well-structured narrative prompt and optional reference images. Returns { files: string[]; texts: string[] }.",

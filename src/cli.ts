@@ -1,14 +1,13 @@
+import { run } from "@openai/agents";
+import { masterAgent } from "agents/master-agent/master-agent";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as readline from "node:readline/promises";
-import { masterAgent } from "agents/master-agent/master-agent";
-import { runAgent } from "agents/runner";
-import type { AppContext, ProgressEvent } from "context/app-context";
 import { parseArgs } from "utils/argparser";
 
 const historyFile = path.join(process.cwd(), ".cli_history");
 
-const { verbose: isVerbose, args } = parseArgs();
+const { args } = parseArgs();
 
 const loadHistory = (): string[] => {
   if (fs.existsSync(historyFile)) {
@@ -24,36 +23,10 @@ const saveHistory = (rl: readline.Interface) => {
 };
 
 const processMessage = async (message: string): Promise<void> => {
-  console.log(""); // Empty line before output
-
-  const context: AppContext = {
-    id: `cli-${Date.now()}`,
-    link: "",
-    telegramContext: null as any,
-    messageId: 0,
-    chatId: 0,
-    userMessage: message,
-    onProgress: (progress: ProgressEvent) => {
-      if (progress.type === "tool_start") console.log(`  → ${progress.toolName}...`);
-      else if (progress.type === "tool_complete") console.log(`  ✓ ${progress.toolName}`);
-      else if (progress.type === "tool_error") console.log(`  ✗ ${progress.toolName}: ${progress.error}`);
-      else if (progress.type === "status") console.log(`  ${progress.message}`);
-    },
-    onFile: (file) => {
-      console.log(`  📎 File: ${file.filename ?? "unnamed"} (${file.mimeType})`);
-    },
-  };
-
-  const result = await runAgent(masterAgent, message, context);
-
-  console.log(""); // Empty line after output
-
-  if (!result.success) {
-    console.error(`Error: ${result.error ?? "Unknown error"}\n`);
-    process.exit(1);
-  } else if (result.result) {
-    console.log(`Bot: ${JSON.stringify(result.result, null, 2)}\n`);
-  }
+  console.log();
+  const result = await run(masterAgent, message);
+  console.log();
+  console.log(result.finalOutput);
 };
 
 const runInteractive = async () => {

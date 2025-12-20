@@ -1,8 +1,8 @@
+import { tool } from "@openai/agents";
 import { updateMemory } from "services/memory/memory-store";
-import { createTool } from "tools/sdk-tool";
 import { z } from "zod";
 
-export const updateMemoryTool = createTool({
+export const updateMemoryTool = tool({
   name: "update_memory",
   description: "Update the content of an existing memory",
   parameters: z.object({

@@ -1,8 +1,8 @@
+import { tool } from "@openai/agents";
 import { deleteMemory } from "services/memory/memory-store";
-import { createTool } from "tools/sdk-tool";
 import { z } from "zod";
 
-export const deleteMemoryTool = createTool({
+export const deleteMemoryTool = tool({
   name: "delete_memory",
   description: "Delete a memory by its ID. Use search_memories first to find the ID.",
   parameters: z.object({

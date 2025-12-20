@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 
 export function Dots() {
   const [count, setCount] = useState(0);
@@ -6,7 +6,7 @@ export function Dots() {
   useEffect(() => {
     const interval = setInterval(() => {
       setCount((c) => (c + 1) % 3);
-    }, 1000);
+    }, 100);
     return () => clearInterval(interval);
   }, []);
 

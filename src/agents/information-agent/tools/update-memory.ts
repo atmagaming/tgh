@@ -1,9 +1,9 @@
+import { tool } from "@openai/agents";
 import { logger } from "logger";
 import { updateMemory } from "services/memory/memory-store";
-import { createTool } from "tools/sdk-tool";
 import { z } from "zod";
 
-export const updateMemoryTool = createTool({
+export const updateMemoryTool = tool({
   name: "update_memory",
   description:
     "Update an existing memory with new information. Use when you need to refine or correct a previously stored memory. The embedding will be recalculated automatically.",

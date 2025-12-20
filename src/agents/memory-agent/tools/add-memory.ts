@@ -1,8 +1,8 @@
+import { tool } from "@openai/agents";
 import { addMemory } from "services/memory/memory-store";
-import { createTool } from "tools/sdk-tool";
 import { z } from "zod";
 
-export const addMemoryTool = createTool({
+export const addMemoryTool = tool({
   name: "add_memory",
   description: "Store a new memory for future reference. Memories are searchable by semantic similarity.",
   parameters: z.object({

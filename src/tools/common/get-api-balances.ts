@@ -1,6 +1,6 @@
+import { tool } from "@openai/agents";
 import { env } from "env";
 import { models } from "models";
-import { createTool } from "tools/sdk-tool";
 import { z } from "zod";
 
 interface ServiceBalance {
@@ -136,11 +136,11 @@ async function getPerplexityBalance(): Promise<ServiceBalance> {
   }
 }
 
-export const getAPIBalancesTool = createTool({
+export const getAPIBalancesTool = tool({
   name: "get_api_balances",
   description: "Get balance and usage information for all configured API services (Meshy, OpenAI, Gemini, Perplexity)",
   parameters: z.object({}),
-  execute: async (_input, _context) => {
+  execute: async () => {
     const results = await Promise.all([
       getMeshyBalance(),
       getOpenAIAgentBalance(),

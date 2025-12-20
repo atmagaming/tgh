@@ -1,9 +1,9 @@
+import { tool } from "@openai/agents";
 import { logger } from "logger";
 import { getDriveClient } from "services/google-drive/google-drive";
-import { createTool } from "tools/sdk-tool";
 import { z } from "zod";
 
-export const deleteDriveFileTool = createTool({
+export const deleteDriveFileTool = tool({
   name: "delete_drive_file",
   description:
     "Move a file or folder to trash in Google Drive. Use this when the user wants to delete a file or folder. The file will be moved to trash and can be recovered from there. Requires the file ID.",
@@ -12,7 +12,7 @@ export const deleteDriveFileTool = createTool({
       .string()
       .describe("The ID of the file or folder to delete. Get this from list_drive_files or search_drive_files."),
   }),
-  execute: async ({ file_id }, _context) => {
+  execute: async ({ file_id }) => {
     logger.info({ fileId: file_id }, "Deleting Drive file");
 
     const drive = getDriveClient();

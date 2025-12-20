@@ -1,9 +1,9 @@
+import { tool } from "@openai/agents";
 import { logger } from "logger";
 import { searchMemories } from "services/memory/memory-store";
-import { createTool } from "tools/sdk-tool";
 import { z } from "zod";
 
-export const searchMemoriesTool = createTool({
+export const searchMemoriesTool = tool({
   name: "search_memories",
   description:
     "Search your agent memories using semantic similarity. Use when you need to recall past conversations, decisions, or information from previous interactions. Returns relevant memories ranked by similarity.",
