@@ -5,12 +5,10 @@ import { GroupRenderer, TelegramRenderer } from "io/output";
 import { Job } from "jobs/job";
 import { JobQueue } from "jobs/job-queue";
 import { logger } from "logger";
-import { JobStore } from "services/job-store";
 import { isBotMentioned } from "utils";
 
 export class App {
   readonly bot = new Bot(env.TELEGRAM_BOT_TOKEN);
-  readonly jobStore = new JobStore("./cache/jobs", { maxJobs: 100 });
   private botUsername = "";
   private jobQueue = new JobQueue(this.processJob.bind(this));
 

@@ -1,5 +1,5 @@
-import { Agent } from "@openai/agents";
 import type { Tool } from "@openai/agents";
+import { Agent } from "@openai/agents";
 import type { z } from "zod";
 
 export function createAgent<TOutput extends z.ZodTypeAny>(config: {

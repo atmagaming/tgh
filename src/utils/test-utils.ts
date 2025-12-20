@@ -1,8 +1,9 @@
 import { spyOn } from "bun:test";
 import { Anthropic } from "@anthropic-ai/sdk";
 import type { ITool, ToolContext } from "agents/agent";
+import type { AppContext } from "context/app-context";
 import { env } from "env";
-import type { Job } from "jobs";
+import type { Context } from "grammy";
 import { models } from "models";
 
 /**
@@ -80,12 +81,12 @@ export function createMockContext(overrides?: Partial<ToolContext>): ToolContext
   };
 }
 
-/** Creates a mock Job with ToolContext properties for testing */
-export function createMockJob(overrides?: Partial<Job & ToolContext>): Job & Partial<ToolContext> {
+/** Creates a mock AppContext with ToolContext properties for testing */
+export function createMockJob(overrides?: Partial<AppContext & ToolContext>): AppContext & Partial<ToolContext> {
   return {
-    id: `test-${Date.now()}`,
-    link: "http://localhost/test",
-    telegramContext: {} as any,
+    traceId: `test-trace-${Date.now()}`,
+    link: "https://platform.openai.com/logs/trace?trace_id=test-trace",
+    telegramContext: {} as Context,
     userMessage: "test message",
     messageId: 1,
     chatId: 123,

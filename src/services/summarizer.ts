@@ -30,7 +30,7 @@ Examples:
 
 class Summarizer {
   private readonly client = new OpenAI({ apiKey: env.OPENAI_API_KEY });
-  private readonly model = "gpt-4o-mini";
+  private readonly model = "gpt-5-nano";
 
   async summarizeTool(options: SummarizeToolOptions): Promise<string> {
     const { toolName, input, output } = options;
@@ -69,6 +69,21 @@ class Summarizer {
 
     const summary = response.choices[0]?.message?.content?.trim();
     return summary || "An unexpected error occurred. Please try again.";
+  }
+
+  async summarizeWorkflow(userRequest: string): Promise<string> {
+    const prompt = `Give a short name (up to 3 words) summarizing the following user request:
+User Request: ${userRequest}
+Summary:`;
+
+    const response = await this.client.responses.create({
+      model: this.model,
+      input: prompt,
+      text: { verbosity: "low" },
+      reasoning: { effort: "none" },
+    });
+
+    return response.output_text;
   }
 }
 

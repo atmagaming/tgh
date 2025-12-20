@@ -9,7 +9,7 @@ export const getMemoryTool = new Tool(
   {
     memoryId: z.string().describe("The ID of the memory to retrieve"),
   },
-  async ({ memoryId }) => {
+  ({ memoryId }) => {
     logger.info({ memoryId }, "Get memory request");
 
     const memory = getMemory(memoryId);

@@ -4,13 +4,12 @@ import { run } from "@openai/agents";
 import { useJob } from "@providers/JobProvider";
 import { masterAgent } from "agents/master-agent/master-agent";
 import { Message } from "io/output";
+import { parse } from "partial-json";
 import { useEffect, useState } from "react";
-import { parse, Allow } from "partial-json";
 
 export function Main() {
   const job = useJob();
   const [result, setResult] = useState<string | null>(null);
-  const [logs, setLogs] = useState<string | null>(null);
 
   // Run the agent when the component mounts
   useEffect(() => {
@@ -23,6 +22,10 @@ export function Main() {
         const stream = await run(masterAgent, job.messageText, {
           stream: true,
         });
+
+        // Extract trace ID from the run result
+        const extractedTraceId = stream.state._trace?.traceId ?? null;
+        job.setTraceId(extractedTraceId);
 
         let current = "";
 
@@ -41,7 +44,6 @@ export function Main() {
         }
 
         if (cancelled) return;
-        setResult(stream.finalOutput.response);
         job.done = true;
       } catch (error) {
         if (cancelled) return;
@@ -53,13 +55,12 @@ export function Main() {
     return () => {
       cancelled = true;
     };
-  }, [job.id, job.messageText]);
+  }, [job.messageText]);
 
   return (
     <Message repliesTo={job.messageId}>
       {result ? <p>{result}</p> : null}
       <br />
-      {logs && <p>{logs}</p>}
       {!job.done ? <Progress toolName={masterAgent.name} /> : null}
       <br />
       <JobStatus />

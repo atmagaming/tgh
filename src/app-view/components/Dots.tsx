@@ -10,5 +10,5 @@ export function Dots() {
     return () => clearInterval(interval);
   }, []);
 
-  return <span>{".".repeat(count + 1)}</span>;
+  return <>{".".repeat(count + 1)}</>;
 }

@@ -1,8 +1,8 @@
-import { run } from "@openai/agents";
-import { masterAgent } from "agents/master-agent/master-agent";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as readline from "node:readline/promises";
+import { run } from "@openai/agents";
+import { masterAgent } from "agents/master-agent/master-agent";
 import { parseArgs } from "utils/argparser";
 
 const historyFile = path.join(process.cwd(), ".cli_history");

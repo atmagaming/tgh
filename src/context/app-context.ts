@@ -1,15 +1,20 @@
-import type { FileData } from "io/output";
 import type { Context } from "grammy";
+import type { FileData } from "io/output";
 
 export interface AppContext {
-  readonly id: string;
-  readonly link: string;
+  readonly traceId: string | null;
+  readonly link: string | null;
   readonly telegramContext: Context;
   readonly messageId: number;
   readonly chatId: number;
   readonly userMessage: string;
   onProgress?: (event: ProgressEvent) => void;
   onFile?: (file: FileData) => void;
+}
+
+export function createTraceLink(traceId: string | null): string | null {
+  if (!traceId) return null;
+  return `https://platform.openai.com/logs/trace?trace_id=${traceId}`;
 }
 
 export type ProgressEvent =

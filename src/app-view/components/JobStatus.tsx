@@ -5,7 +5,7 @@ export function JobStatus() {
   const job = useJob();
   return (
     <p>
-      <a href={job.link}>
+      <a href={job.link ?? undefined}>
         {job.done ? (
           "Done"
         ) : (

@@ -5,12 +5,14 @@ import type { Job } from "./job";
 export class JobQueue {
   private queue: Job[] = [];
   private processing = false;
+  private jobCounter = 0;
 
   constructor(private readonly handler: (job: Job) => Promise<void>) {}
 
   enqueue(job: Job) {
     this.queue.push(job);
-    logger.info({ jobId: job.id, queueLength: this.queue.length }, "Job enqueued");
+    const jobId = `job-${++this.jobCounter}`;
+    logger.info({ jobId, queueLength: this.queue.length }, "Job enqueued");
     void this.processNext();
   }
 
@@ -25,18 +27,19 @@ export class JobQueue {
       return;
     }
 
-    logger.info({ jobId: job.id }, "Processing job");
+    const jobId = `job-${this.jobCounter}`;
+    logger.info({ jobId }, "Processing job");
 
     try {
       if (!this.handler) throw new Error("No job handler registered");
       await this.handler(job);
-      logger.info({ jobId: job.id }, "Job completed");
+      logger.info({ jobId }, "Job completed");
     } catch (error) {
       const userMessage = await summarizer.summarizeError(
         error instanceof Error ? error : new Error(JSON.stringify(error)),
       );
 
-      logger.error({ jobId: job.id, error }, "Job failed");
+      logger.error({ jobId, error }, "Job failed");
       await job.telegramContext.api.sendMessage(job.chatId, userMessage, {
         reply_parameters: { message_id: job.messageId },
       });
