@@ -52,6 +52,8 @@ export function serializeTelegram(node: OutputNode, mode: TextMode = "markdown")
       return `<code>${children}</code>`;
     case "pre":
       return `<pre>${children}</pre>`;
+    case "blockquote":
+      return `<blockquote>${children}</blockquote>`;
     case "br":
       return "\n";
     case "div":

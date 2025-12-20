@@ -18,6 +18,7 @@
     "baseUrl": "./src",
     "paths": {
       "@components/*": ["app-view/components/*"],
+      "@hooks/*": ["app-view/hooks/*"],
       "@providers/*": ["app-view/providers/*"]
     },
 

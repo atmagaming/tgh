@@ -34,7 +34,9 @@
   "javascript": {
     "formatter": {
       "quoteStyle": "double",
-      "semicolons": "always"
+      "semicolons": "always",
+      "jsxQuoteStyle": "double",
+      "bracketSameLine": true
     }
   }
 }

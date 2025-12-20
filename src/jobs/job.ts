@@ -1,31 +1,18 @@
-import type { AppContext, ProgressEvent } from "context/app-context";
-import { createTraceLink } from "context/app-context";
+import { random } from "@elumixor/frontils";
 import type { Context } from "grammy";
-import type { FileData } from "io/output";
+import { summarizer } from "services/summarizer";
 
 export class Job {
+  readonly id = random.string(32).toLowerCase();
+  readonly summarizedName;
+
   constructor(
     readonly telegramContext: Context,
     readonly userMessage: string,
     readonly messageId: number,
     readonly chatId: number,
-  ) {}
-
-  toAppContext(
-    traceId: string | null,
-    callbacks: {
-      onProgress?: (event: ProgressEvent) => void;
-      onFile?: (file: FileData) => void;
-    },
-  ): AppContext {
-    return {
-      traceId,
-      link: createTraceLink(traceId),
-      telegramContext: this.telegramContext,
-      messageId: this.messageId,
-      chatId: this.chatId,
-      userMessage: this.userMessage,
-      ...callbacks,
-    };
+  ) {
+    console.log(`Created job ${this.id} for message ${userMessage}`);
+    this.summarizedName = summarizer.summarizeWorkflow(this.userMessage);
   }
 }

@@ -6,6 +6,7 @@ import { serializeTelegram } from "./telegram-serializer";
 export class TelegramMessageManager {
   private messageIds: number[] = [];
   private lastSentText?: string;
+  private lastSentChunks: string[] = [];
 
   constructor(
     private readonly ctx: Context,
@@ -27,13 +28,16 @@ export class TelegramMessageManager {
 
     const chunks = splitMessage(html);
     const newMessageIds: number[] = [];
+    const newChunks: string[] = [];
 
     for (const [i, chunk] of chunks.entries()) {
       if (!chunk) continue;
 
       const existingMsgId = this.messageIds[i];
       if (existingMsgId !== undefined) {
-        await this.ctx.api.editMessageText(chatId, existingMsgId, chunk.text, { parse_mode: "HTML" });
+        if (chunk.text !== this.lastSentChunks[i]) {
+          await this.ctx.api.editMessageText(chatId, existingMsgId, chunk.text, { parse_mode: "HTML" });
+        }
         newMessageIds.push(existingMsgId);
       } else {
         const replyTo = i === 0 ? this.replyToMessageId : newMessageIds[i - 1];
@@ -46,11 +50,14 @@ export class TelegramMessageManager {
 
         newMessageIds.push(msg.message_id);
       }
+
+      newChunks.push(chunk.text);
     }
 
     for (const msgId of this.messageIds.skip(chunks.length)) await this.ctx.api.deleteMessage(chatId, msgId);
 
     this.messageIds = newMessageIds;
+    this.lastSentChunks = newChunks;
     this.lastSentText = html;
   }
 
@@ -58,5 +65,6 @@ export class TelegramMessageManager {
     const chatId = this.chatId;
     for (const msgId of this.messageIds) await this.ctx.api.deleteMessage(chatId, msgId);
     this.messageIds = [];
+    this.lastSentChunks = [];
   }
 }

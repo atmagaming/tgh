@@ -5,8 +5,8 @@ export function Dots() {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setCount((c) => (c + 1) % 3);
-    }, 100);
+      setCount((c) => (c + 2) % 3);
+    }, 300);
     return () => clearInterval(interval);
   }, []);
 

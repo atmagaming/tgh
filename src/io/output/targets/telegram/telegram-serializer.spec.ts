@@ -32,4 +32,10 @@ describe("serializeTelegram", () => {
 
     expect(serializeTelegram(tree)).toBe("<pre>* not italic\n&lt;raw&gt;</pre>");
   });
+
+  test("renders blockquote elements", () => {
+    const tree = el("io-message", [el("blockquote", [t("This is a quote")])]);
+
+    expect(serializeTelegram(tree)).toBe("<blockquote>This is a quote</blockquote>");
+  });
 });

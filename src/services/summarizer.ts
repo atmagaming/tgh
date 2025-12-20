@@ -77,10 +77,9 @@ User Request: ${userRequest}
 Summary:`;
 
     const response = await this.client.responses.create({
-      model: this.model,
+      model: "gpt-4.1-nano", // faster than gpt-5-nano because we don't need reasoning step
       input: prompt,
-      text: { verbosity: "low" },
-      reasoning: { effort: "none" },
+      max_output_tokens: 16,
     });
 
     return response.output_text;

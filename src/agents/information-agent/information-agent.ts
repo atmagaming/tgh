@@ -1,7 +1,7 @@
-import { Agent } from "@openai/agents";
+import { Agent, webSearchTool } from "@openai/agents";
 import { searchDriveFilesTool } from "agents/drive-agent/tools/search-drive-files";
 import { models } from "models";
-import { webSearchTool } from "tools/common/web-search";
+// import { webSearchTool } from "tools/common/web-search";
 import { z } from "zod";
 import { addMemoryTool, getGDDPageTool, searchGDDTool, searchMemoriesTool, updateMemoryTool } from "./tools";
 
@@ -42,7 +42,8 @@ export const informationAgent = new Agent({
     searchMemoriesTool,
     addMemoryTool,
     updateMemoryTool,
-    webSearchTool,
+    webSearchTool(),
+    // webSearchTool,
     searchDriveFilesTool,
   ],
   outputType: InformationOutputSchema,
