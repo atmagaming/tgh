@@ -1,27 +1,17 @@
-import type { Tool } from "agents/agent";
 import type { FileData } from "io/output";
 import { logger } from "logger";
 import { meshyClient } from "services/meshy/meshy";
+import { createTool } from "tools/sdk-tool";
+import { z } from "zod";
 
-export const generate3DFromImageTool: Tool = {
-  definition: {
-    name: "generate_3d_from_image",
-    description:
-      "Generate a 3D model from an image URL. Long-running operation with progress updates. Returns GLB/FBX model files.",
-    input_schema: {
-      type: "object",
-      properties: {
-        image_url: {
-          type: "string",
-          description: "The URL of the image to convert to 3D",
-        },
-      },
-      required: ["image_url"],
-    },
-  },
-  execute: async (toolInput, context) => {
-    const image_url = toolInput.image_url as string;
-
+export const generate3DFromImageTool = createTool({
+  name: "generate_3d_from_image",
+  description:
+    "Generate a 3D model from an image URL. Long-running operation with progress updates. Returns GLB/FBX model files.",
+  parameters: z.object({
+    image_url: z.string().describe("The URL of the image to convert to 3D"),
+  }),
+  execute: async ({ image_url }, context) => {
     logger.info({ image_url }, "3D generation request");
 
     context.onProgress?.({ type: "status", message: "Starting 3D generation..." });
@@ -68,4 +58,4 @@ export const generate3DFromImageTool: Tool = {
       files,
     };
   },
-};
+});

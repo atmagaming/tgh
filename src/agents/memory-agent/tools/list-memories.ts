@@ -1,19 +1,12 @@
-import type { Tool } from "agents/agent";
 import { getAllMemories } from "services/memory/memory-store";
+import { createTool } from "tools/sdk-tool";
+import { z } from "zod";
 
-export const listMemoriesTool: Tool = {
-  definition: {
-    name: "list_memories",
-    description: "List all stored memories with their IDs, content, and timestamps",
-    input_schema: {
-      type: "object",
-      properties: {},
-      required: [],
-    },
-  },
-
-  // biome-ignore lint/suspicious/useAwait: Tool interface requires Promise return
-  async execute() {
+export const listMemoriesTool = createTool({
+  name: "list_memories",
+  description: "List all stored memories with their IDs, content, and timestamps",
+  parameters: z.object({}),
+  execute: async () => {
     const memories = getAllMemories();
 
     return {
@@ -27,4 +20,4 @@ export const listMemoriesTool: Tool = {
       })),
     };
   },
-};
+});

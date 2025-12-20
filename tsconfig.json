@@ -16,6 +16,10 @@
 
     // Path aliases
     "baseUrl": "./src",
+    "paths": {
+      "@components/*": ["app-view/components/*"],
+      "@providers/*": ["app-view/providers/*"]
+    },
 
     // Best practices
     "strict": true,

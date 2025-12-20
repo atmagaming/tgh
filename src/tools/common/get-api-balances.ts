@@ -1,6 +1,7 @@
-import type { Tool } from "agents/agent";
 import { env } from "env";
 import { models } from "models";
+import { createTool } from "tools/sdk-tool";
+import { z } from "zod";
 
 interface ServiceBalance {
   service: string;
@@ -42,14 +43,13 @@ async function getMeshyBalance(): Promise<ServiceBalance> {
   }
 }
 
-async function getAnthropicBalance(): Promise<ServiceBalance> {
+async function getOpenAIAgentBalance(): Promise<ServiceBalance> {
   try {
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
-        "x-api-key": env.ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
+        Authorization: `Bearer ${env.OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
         model: models.fast,
@@ -59,13 +59,13 @@ async function getAnthropicBalance(): Promise<ServiceBalance> {
     });
 
     return {
-      service: "Anthropic (Claude)",
+      service: "OpenAI (Agents)",
       status: "success",
       balance: response.ok ? "API key is valid (no public balance endpoint)" : `API error: ${response.status}`,
     };
   } catch (error) {
     return {
-      service: "Anthropic (Claude)",
+      service: "OpenAI (Agents)",
       status: "error",
       error: error instanceof Error ? error.message : String(error),
     };
@@ -136,54 +136,16 @@ async function getPerplexityBalance(): Promise<ServiceBalance> {
   }
 }
 
-async function getOpenAIBalance(): Promise<ServiceBalance> {
-  try {
-    const response = await fetch("https://api.openai.com/v1/models", {
-      headers: {
-        Authorization: `Bearer ${env.OPENAI_API_KEY}`,
-      },
-    });
-
-    if (!response.ok) {
-      return {
-        service: "OpenAI",
-        status: "error",
-        error: `API error: ${response.status}`,
-      };
-    }
-
-    return {
-      service: "OpenAI",
-      status: "success",
-      balance: "API key is valid (no public balance endpoint)",
-    };
-  } catch (error) {
-    return {
-      service: "OpenAI",
-      status: "error",
-      error: error instanceof Error ? error.message : String(error),
-    };
-  }
-}
-
-export const getAPIBalancesTool: Tool = {
-  definition: {
-    name: "get_api_balances",
-    description:
-      "Get balance and usage information for all configured API services (Meshy, Anthropic/Claude, Gemini, Perplexity, OpenAI)",
-    input_schema: {
-      type: "object",
-      properties: {},
-      required: [],
-    },
-  },
-  execute: async () => {
+export const getAPIBalancesTool = createTool({
+  name: "get_api_balances",
+  description: "Get balance and usage information for all configured API services (Meshy, OpenAI, Gemini, Perplexity)",
+  parameters: z.object({}),
+  execute: async (_input, _context) => {
     const results = await Promise.all([
       getMeshyBalance(),
-      getAnthropicBalance(),
+      getOpenAIAgentBalance(),
       getGeminiBalance(),
       getPerplexityBalance(),
-      getOpenAIBalance(),
     ]);
 
     return {
@@ -199,4 +161,4 @@ export const getAPIBalancesTool: Tool = {
         .join("\n"),
     };
   },
-};
+});

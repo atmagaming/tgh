@@ -1,7 +1,8 @@
 import { spyOn } from "bun:test";
 import { Anthropic } from "@anthropic-ai/sdk";
-import type { Tool, ToolContext } from "agents/agent";
+import type { ITool, ToolContext } from "agents/agent";
 import { env } from "env";
+import type { Job } from "jobs";
 import { models } from "models";
 
 /**
@@ -55,7 +56,7 @@ Result: "${result}"`,
   return input.answers_query;
 }
 
-export function replaceToolsWithMocks(tools: Tool[]) {
+export function replaceToolsWithMocks(tools: ITool[]) {
   return new Map(
     tools.map((tool) => [
       tool.definition.name,
@@ -75,6 +76,22 @@ export function createMockContext(overrides?: Partial<ToolContext>): ToolContext
   return {
     onProgress: () => {},
     onFile: () => {},
+    ...overrides,
+  };
+}
+
+/** Creates a mock Job with ToolContext properties for testing */
+export function createMockJob(overrides?: Partial<Job & ToolContext>): Job & Partial<ToolContext> {
+  return {
+    id: `test-${Date.now()}`,
+    link: "http://localhost/test",
+    telegramContext: {} as any,
+    userMessage: "test message",
+    messageId: 1,
+    chatId: 123,
+    onProgress: () => {},
+    onFile: () => {},
+    verbose: false,
     ...overrides,
   };
 }

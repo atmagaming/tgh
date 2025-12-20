@@ -47,31 +47,100 @@ When creating or updating agent system prompts:
 - **No Process Explanation**: State what to do, not how the system works
 - **Keep Technical Details**: API specifics, operation sequences, data formats where needed
 
-## Tool Design Principles
+## Agent & Tool Architecture (OpenAI Agents SDK)
 
-1. **Don't duplicate - refactor/update existing tools**
+We use the OpenAI Agents SDK (`@openai/agents`) for our agent system.
 
-   - Before creating a new tool, check if an existing tool can be extended
-   - Add parameters/overloads to existing tools instead of creating variants
+### Tool Creation
 
-2. **Don't couple tools with output (Telegram/console)**
+Tools are created using the `createTool()` helper from `src/tools/sdk-tool.ts`:
 
-   - Tools return data (buffers, results) - NOT send to Telegram directly
-   - Output is handled by the IO system (`src/io/`)
-   - For file outputs, return `files: FileData[]` in the result
-   - The Agent class detects file outputs and sends via MessageHandle
+```typescript
+import { createTool } from "tools/sdk-tool";
+import { z } from "zod";
 
-3. **Binary data in results**
-   - Return buffers directly in results, not temp file paths
-   - See `src/io/types.ts` for FileData interface
+export const myTool = createTool({
+  name: "tool_name",
+  description: "Clear description of what the tool does",
+  parameters: z.object({
+    param1: z.string().describe("Parameter description"),
+    param2: z.number().optional().describe("Optional parameter"),
+  }),
+  execute: async ({ param1, param2 }, context: AppContext) => {
+    // Implementation
+    return { result: "data" };
+  },
+});
+```
 
-## Adding New Tools
+**Tool Design Principles:**
 
-1. Create tool file in the appropriate agent's `tools/` directory
-2. Export and add to agent's tool array
-3. For file outputs: Return `{ files: [{ buffer, mimeType, filename? }] }`
-4. Use `context.statusMessage.replaceWith()` for status updates
-5. Tools should be synchronous (wait for completion) unless truly long-running
+1. **Don't duplicate** - Before creating a new tool, check if an existing tool can be extended
+2. **Don't couple with output** - Tools return data, never send to Telegram/console directly
+3. **File outputs** - Return `files: FileData[]` in result; `createTool()` auto-detects and routes via `context.onFile()`
+4. **Progress updates** - Use `context.onProgress?.()` for long-running operations
+
+### Agent Creation
+
+Agents are created using the OpenAI SDK's `Agent` class:
+
+```typescript
+import { Agent } from "@openai/agents";
+import { models } from "models";
+
+export const myAgent = new Agent({
+  name: "agent_name",
+  model: models.fast, // or models.thinking for complex tasks
+  instructions: AGENT_PROMPT, // System prompt
+  tools: [tool1, tool2, tool3],
+  outputType: OutputSchema, // Zod schema for structured output
+});
+```
+
+**Agent Guidelines:**
+
+- **Model Selection:**
+  - `models.nano` (GPT-5 Nano) - Summarization, classification
+  - `models.fast` (GPT-5 mini) - Well-defined tasks, precise prompts
+  - `models.thinking` (GPT-5.1) - Complex agentic tasks, multi-step workflows
+- **Agents are exported as constants** - Not classes (e.g., `export const memoryAgent`)
+- **Agents as Tools** - Sub-agents are converted to tools using `.asTool()`:
+  ```typescript
+  const subAgentTool = subAgent.asTool({
+    toolName: "sub_agent",
+    toolDescription: "Description of what this agent does",
+  });
+
+  const masterAgent = new Agent({
+    name: "master_agent",
+    tools: [regularTool1, regularTool2, subAgentTool],
+  });
+  ```
+- **Handoffs vs Agents as Tools:**
+  - Use **agents as tools** (`.asTool()`) when you need function-like calls with discrete results
+  - Use **handoffs** when transferring full conversation control (rare, for chat routing systems)
+
+### Context System
+
+Tools receive `AppContext` which replaces the old `Job` pattern:
+
+```typescript
+interface AppContext {
+  id: string;
+  link: string;
+  telegramContext: Context;
+  messageId: number;
+  chatId: number;
+  userMessage: string;
+  onProgress?: (event: ProgressEvent) => void;
+  onFile?: (file: FileData) => void;
+}
+```
+
+**Usage:**
+- Access Telegram context: `context.telegramContext`
+- Report progress: `context.onProgress?.({ type: "status", message: "..." })`
+- Send files: Return `{ files: [{ buffer, mimeType, filename }] }` - auto-routed via `onFile`
 
 ## General Guidelines
 
@@ -143,14 +212,24 @@ interface MessageHandle {
 // OutputGroup combines multiple outputs (continue-on-error)
 ```
 
-### Usage in Agents
+### Running Agents
+
+Use the `runAgent()` wrapper from `src/agents/runner.ts`:
 
 ```typescript
-// Entry point creates output and passes statusMessage to agent
-const output = new ConsoleOutput();
-const statusMessage = output.sendMessage({ text: "Processing..." });
-await agent.processTask(task, { statusMessage });
+import { runAgent } from "agents/runner";
+import { masterAgent } from "agents/master-agent/master-agent";
 
-// Tools use statusMessage for progress updates
-context.statusMessage.replaceWith("🎨 Generating image...");
+const context: AppContext = job.toAppContext({
+  onProgress: (event) => { /* handle progress */ },
+  onFile: (file) => { /* handle file output */ },
+});
+
+const result = await runAgent(masterAgent, userMessage, context);
+// Returns: { success: boolean; result?: TOutput; error?: string }
 ```
+
+**Integration Points:**
+- CLI: `src/cli.ts` - Direct `runAgent()` usage
+- Telegram: `src/app.tsx` - Convert Job to AppContext, then run agent
+- Job conversion: `job.toAppContext({ onProgress, onFile })` provides context

@@ -16,7 +16,8 @@
       },
       "style": {
         "useShorthandAssign": "error",
-        "useConsistentObjectDefinitions": "error"
+        "useConsistentObjectDefinitions": "error",
+        "useConsistentMemberAccessibility": "error"
       },
       "nursery": {
         "noFloatingPromises": "error",

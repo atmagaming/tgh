@@ -1,26 +1,16 @@
-import type { Tool } from "agents/agent";
 import { logger } from "logger";
 import { notionClient } from "services/notion/notion-client";
+import { createTool } from "tools/sdk-tool";
+import { z } from "zod";
 
-export const getGDDPageTool: Tool = {
-  definition: {
-    name: "get_gdd_page",
-    description:
-      "Get the full content of a specific GDD page in Notion. Use after searching to read the actual content. Returns the page content in markdown format with all nested blocks.",
-    input_schema: {
-      type: "object",
-      properties: {
-        pageId: {
-          type: "string",
-          description: "The Notion page ID from search results",
-        },
-      },
-      required: ["pageId"],
-    },
-  },
-  execute: async (toolInput) => {
-    const pageId = toolInput.pageId as string;
-
+export const getGDDPageTool = createTool({
+  name: "get_gdd_page",
+  description:
+    "Get the full content of a specific GDD page in Notion. Use after searching to read the actual content. Returns the page content in markdown format with all nested blocks.",
+  parameters: z.object({
+    pageId: z.string().describe("The Notion page ID from search results"),
+  }),
+  execute: async ({ pageId }) => {
     logger.info({ pageId }, "GDD page content request");
 
     const pageContent = await notionClient.getPageContent(pageId);
@@ -32,4 +22,4 @@ export const getGDDPageTool: Tool = {
       url: pageContent.url,
     };
   },
-};
+});

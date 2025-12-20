@@ -1,7 +1,7 @@
-import { Agent } from "agents/agent";
+import { Agent } from "@openai/agents";
 import { models } from "models";
+import { z } from "zod";
 import { analyzeImageTool } from "./tools/analyze-image";
-import { editImageTool } from "./tools/edit-image";
 import { generate3DFromImageTool } from "./tools/generate-3d-from-image";
 import { generateImageTool } from "./tools/generate-image";
 
@@ -23,31 +23,23 @@ Parameter Inference:
 
 Focus on visual result, minimal explanation.`;
 
-export class ImageAgent extends Agent {
-  readonly definition = {
-    name: "image_agent",
-    description:
-      "Visual content operations agent. Use for generating images, editing images, analyzing image content, and creating 3D models from images.",
-    input_schema: {
-      type: "object" as const,
-      properties: {
-        task: {
-          type: "string" as const,
-          description: "The image-related task to perform",
-        },
-      },
-      required: ["task"],
-    },
-  };
+const ImageOutputSchema = z.object({
+  operation: z.string(),
+  files: z.array(
+    z.object({
+      path: z.string(),
+      type: z.string(),
+      description: z.string().optional(),
+    }),
+  ),
+  analysis: z.string().optional(),
+  summary: z.string(),
+});
 
-  constructor() {
-    super(
-      "image_agent",
-      models.fast,
-      IMAGE_AGENT_PROMPT,
-      [generateImageTool, editImageTool, analyzeImageTool, generate3DFromImageTool],
-      2048,
-      1024,
-    );
-  }
-}
+export const imageAgent = new Agent({
+  name: "image_agent",
+  model: models.fast,
+  instructions: IMAGE_AGENT_PROMPT,
+  tools: [generateImageTool, analyzeImageTool, generate3DFromImageTool],
+  outputType: ImageOutputSchema,
+});

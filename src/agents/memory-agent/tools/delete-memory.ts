@@ -1,25 +1,14 @@
-import type { Tool } from "agents/agent";
 import { deleteMemory } from "services/memory/memory-store";
+import { createTool } from "tools/sdk-tool";
+import { z } from "zod";
 
-export const deleteMemoryTool: Tool = {
-  definition: {
-    name: "delete_memory",
-    description: "Delete a memory by its ID. Use search_memories first to find the ID.",
-    input_schema: {
-      type: "object",
-      properties: {
-        memoryId: {
-          type: "string",
-          description: "The ID of the memory to delete",
-        },
-      },
-      required: ["memoryId"],
-    },
-  },
-
-  async execute(input: Record<string, unknown>) {
-    const { memoryId } = input as { memoryId: string };
-
+export const deleteMemoryTool = createTool({
+  name: "delete_memory",
+  description: "Delete a memory by its ID. Use search_memories first to find the ID.",
+  parameters: z.object({
+    memoryId: z.string().describe("The ID of the memory to delete"),
+  }),
+  execute: async ({ memoryId }) => {
     const deleted = await deleteMemory(memoryId);
 
     if (!deleted) {
@@ -28,4 +17,4 @@ export const deleteMemoryTool: Tool = {
 
     return { success: true, message: `Memory ${memoryId} deleted successfully` };
   },
-};
+});

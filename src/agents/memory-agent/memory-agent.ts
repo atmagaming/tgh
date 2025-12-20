@@ -1,8 +1,8 @@
-import { Agent } from "agents/agent";
+import { Agent } from "@openai/agents";
 import { models } from "models";
+import { z } from "zod";
 import { addMemoryTool } from "./tools/add-memory";
 import { deleteMemoryTool } from "./tools/delete-memory";
-import { getMemoryTool } from "./tools/get-memory";
 import { listMemoriesTool } from "./tools/list-memories";
 import { searchMemoriesTool } from "./tools/search-memories";
 import { updateMemoryTool } from "./tools/update-memory";
@@ -19,30 +19,22 @@ ACTION RULES:
 
 Memories persist across sessions and are searchable by meaning.`;
 
-export class MemoryAgent extends Agent {
-  readonly definition = {
-    name: "memory_agent",
-    description:
-      "Memory management agent. Use to store, search, and retrieve persistent memories. Memories are searchable by semantic similarity.",
-    input_schema: {
-      type: "object" as const,
-      properties: {
-        task: {
-          type: "string" as const,
-          description: "The memory operation to perform",
-        },
-      },
-      required: ["task"],
-    },
-  };
+const MemoryOutputSchema = z.object({
+  action: z.enum(["stored", "retrieved", "updated", "deleted", "listed"]),
+  memories: z.array(
+    z.object({
+      id: z.string().optional(),
+      content: z.string(),
+      relevance: z.number().optional(),
+    }),
+  ),
+  summary: z.string(),
+});
 
-  constructor() {
-    super(
-      "memory_agent",
-      models.fast,
-      MEMORY_AGENT_PROMPT,
-      [searchMemoriesTool, listMemoriesTool, addMemoryTool, getMemoryTool, updateMemoryTool, deleteMemoryTool],
-      2048,
-    );
-  }
-}
+export const memoryAgent = new Agent({
+  name: "memory_agent",
+  model: models.fast,
+  instructions: MEMORY_AGENT_PROMPT,
+  tools: [searchMemoriesTool, listMemoriesTool, addMemoryTool, updateMemoryTool, deleteMemoryTool],
+  outputType: MemoryOutputSchema,
+});

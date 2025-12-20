@@ -1,12 +1,12 @@
 import { delay } from "@elumixor/frontils";
 import { useFinishRender } from "io/output";
+import type { Job } from "jobs/job";
 import { logger } from "logger";
 import { createContext, type ReactNode, useContext, useState } from "react";
-import type { Job } from "services/job-queue/job";
 
 export interface JobContextValue {
   readonly id: string;
-  readonly message: string;
+  readonly messageText: string;
   readonly messageId: number;
   readonly chatId: number;
   readonly link: string;
@@ -21,7 +21,7 @@ export function JobProvider({ job, children }: { job: Job; children: ReactNode }
 
   const value: JobContextValue = {
     id: job.id,
-    message: job.userMessage,
+    messageText: job.userMessage,
     messageId: job.messageId,
     chatId: job.chatId,
     link: job.link,

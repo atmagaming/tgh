@@ -1,11 +1,11 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as readline from "node:readline/promises";
-import type { ToolProgress } from "agents/agent";
-import { MasterAgent } from "agents/master-agent/master-agent";
+import { masterAgent } from "agents/master-agent/master-agent";
+import { runAgent } from "agents/runner";
+import type { AppContext, ProgressEvent } from "context/app-context";
 import { parseArgs } from "utils/argparser";
 
-const masterAgent = new MasterAgent();
 const historyFile = path.join(process.cwd(), ".cli_history");
 
 const { verbose: isVerbose, args } = parseArgs();
@@ -26,9 +26,14 @@ const saveHistory = (rl: readline.Interface) => {
 const processMessage = async (message: string): Promise<void> => {
   console.log(""); // Empty line before output
 
-  const result = await masterAgent.processTask(message, {
-    verbose: isVerbose,
-    onProgress: (progress: ToolProgress) => {
+  const context: AppContext = {
+    id: `cli-${Date.now()}`,
+    link: "",
+    telegramContext: null as any,
+    messageId: 0,
+    chatId: 0,
+    userMessage: message,
+    onProgress: (progress: ProgressEvent) => {
       if (progress.type === "tool_start") console.log(`  → ${progress.toolName}...`);
       else if (progress.type === "tool_complete") console.log(`  ✓ ${progress.toolName}`);
       else if (progress.type === "tool_error") console.log(`  ✗ ${progress.toolName}: ${progress.error}`);
@@ -37,7 +42,9 @@ const processMessage = async (message: string): Promise<void> => {
     onFile: (file) => {
       console.log(`  📎 File: ${file.filename ?? "unnamed"} (${file.mimeType})`);
     },
-  });
+  };
+
+  const result = await runAgent(masterAgent, message, context);
 
   console.log(""); // Empty line after output
 
@@ -45,7 +52,7 @@ const processMessage = async (message: string): Promise<void> => {
     console.error(`Error: ${result.error ?? "Unknown error"}\n`);
     process.exit(1);
   } else if (result.result) {
-    console.log(`Bot: ${result.result}\n`);
+    console.log(`Bot: ${JSON.stringify(result.result, null, 2)}\n`);
   }
 };
 

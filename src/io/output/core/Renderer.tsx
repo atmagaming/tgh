@@ -1,6 +1,6 @@
 import { logger } from "logger";
 import type { ReactNode } from "react";
-import { FinishRenderProvider, reconciler, type Container, type ElementNode, type OutputNode } from ".";
+import { type Container, type ElementNode, FinishRenderProvider, type OutputNode, reconciler } from ".";
 
 // Finds all io-message nodes in the tree
 function findMessageNodes(node: OutputNode): ElementNode[] {

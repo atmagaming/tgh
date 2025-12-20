@@ -1,36 +1,27 @@
-import type { Tool } from "agents/agent";
 import { logger } from "logger";
 import { searchMemories } from "services/memory/memory-store";
+import { createTool } from "tools/sdk-tool";
+import { z } from "zod";
 
-export const searchMemoriesTool: Tool = {
-  definition: {
-    name: "search_memories",
-    description:
-      "Search your agent memories using semantic similarity. Use when you need to recall past conversations, decisions, or information from previous interactions. Returns relevant memories ranked by similarity.",
-    input_schema: {
-      type: "object",
-      properties: {
-        query: {
-          type: "string",
-          description: "What to search for in memories (e.g., 'user preferences', 'past decisions about UI')",
-        },
-        topK: {
-          type: "number",
-          description: "Number of most relevant memories to return (default: 5, max: 10)",
-          minimum: 1,
-          maximum: 10,
-        },
-      },
-      required: ["query"],
-    },
-  },
-  execute: async (toolInput) => {
-    const query = toolInput.query as string;
-    const topK = ((toolInput.topK as number | undefined) ?? 5) as number;
+export const searchMemoriesTool = createTool({
+  name: "search_memories",
+  description:
+    "Search your agent memories using semantic similarity. Use when you need to recall past conversations, decisions, or information from previous interactions. Returns relevant memories ranked by similarity.",
+  parameters: z.object({
+    query: z.string().describe("What to search for in memories (e.g., 'user preferences', 'past decisions about UI')"),
+    topK: z
+      .number()
+      .min(1)
+      .max(10)
+      .optional()
+      .describe("Number of most relevant memories to return (default: 5, max: 10)"),
+  }),
+  execute: async ({ query, topK }) => {
+    const k = topK ?? 5;
 
-    logger.info({ query, topK }, "Memory search request");
+    logger.info({ query, topK: k }, "Memory search request");
 
-    const memories = await searchMemories(query, topK);
+    const memories = await searchMemories(query, k);
 
     return {
       query,
@@ -43,4 +34,4 @@ export const searchMemoriesTool: Tool = {
       })),
     };
   },
-};
+});

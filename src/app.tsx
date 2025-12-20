@@ -1,11 +1,10 @@
-import { MasterAgent } from "app/MasterAgent";
-import { JobProvider } from "app/providers/JobProvider";
+import { JobProvider, Main } from "app-view";
 import { env } from "env";
 import { Bot } from "grammy";
 import { ConsoleRenderer, GroupRenderer, TelegramRenderer } from "io/output";
+import { Job } from "jobs/job";
+import { JobQueue } from "jobs/job-queue";
 import { logger } from "logger";
-import { Job } from "services/job-queue/job";
-import { JobQueue } from "services/job-queue/job-queue";
 import { JobStore } from "services/job-store";
 import { isBotMentioned } from "utils";
 
@@ -53,7 +52,7 @@ export class App {
 
     await renderer.render(
       <JobProvider job={job}>
-        <MasterAgent />
+        <Main />
       </JobProvider>,
     );
   }

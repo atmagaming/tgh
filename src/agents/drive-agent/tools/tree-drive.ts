@@ -1,49 +1,29 @@
-import type { Tool } from "agents/agent";
 import { logger } from "logger";
 import { buildTree, formatTreeAscii } from "services/google-drive/drive-tree";
+import { createTool } from "tools/sdk-tool";
+import { z } from "zod";
 
-export const treeDriveTool: Tool = {
-  definition: {
-    name: "tree_drive",
-    description:
-      "Display Google Drive folder hierarchy as a tree. Shows structure with IDs, names, types. Useful for understanding folder organization before searching or uploading.",
-    input_schema: {
-      type: "object",
-      properties: {
-        folder_id: {
-          type: "string",
-          description: "Root folder ID. Omit to show all shared folders.",
-        },
-        depth: {
-          type: "number",
-          description: "How many levels deep (default: 3, max: 5)",
-        },
-        show_files: {
-          type: "boolean",
-          description: "Include files, not just folders (default: true)",
-        },
-        show_ids: {
-          type: "boolean",
-          description: "Show file/folder IDs (default: true)",
-        },
-        show_size: {
-          type: "boolean",
-          description: "Show file sizes (default: false)",
-        },
-      },
-    },
-  },
-  execute: async (toolInput) => {
-    const folderId = toolInput.folder_id as string | undefined;
-    const depth = Math.min((toolInput.depth as number) ?? 3, 5);
-    const showFiles = (toolInput.show_files as boolean) ?? true;
-    const showIds = (toolInput.show_ids as boolean) ?? true;
-    const showSize = (toolInput.show_size as boolean) ?? false;
+export const treeDriveTool = createTool({
+  name: "tree_drive",
+  description:
+    "Display Google Drive folder hierarchy as a tree. Shows structure with IDs, names, types. Useful for understanding folder organization before searching or uploading.",
+  parameters: z.object({
+    folder_id: z.string().optional().describe("Root folder ID. Omit to show all shared folders."),
+    depth: z.number().optional().describe("How many levels deep (default: 3, max: 5)"),
+    show_files: z.boolean().optional().describe("Include files, not just folders (default: true)"),
+    show_ids: z.boolean().optional().describe("Show file/folder IDs (default: true)"),
+    show_size: z.boolean().optional().describe("Show file sizes (default: false)"),
+  }),
+  execute: async ({ folder_id, depth, show_files, show_ids, show_size }, _context) => {
+    const maxDepth = Math.min(depth ?? 3, 5);
+    const showFiles = show_files ?? true;
+    const showIds = show_ids ?? true;
+    const showSize = show_size ?? false;
 
-    logger.info({ folderId, depth, showFiles }, "Building Drive tree");
+    logger.info({ folderId: folder_id, depth: maxDepth, showFiles }, "Building Drive tree");
 
-    const tree = await buildTree(folderId, {
-      maxDepth: depth,
+    const tree = await buildTree(folder_id, {
+      maxDepth,
       includeFiles: showFiles,
     });
 
@@ -76,4 +56,4 @@ export const treeDriveTool: Tool = {
       },
     };
   },
-};
+});

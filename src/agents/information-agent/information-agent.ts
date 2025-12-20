@@ -1,65 +1,49 @@
-import { Agent } from "agents/agent";
+import { Agent } from "@openai/agents";
 import { searchDriveFilesTool } from "agents/drive-agent/tools/search-drive-files";
 import { models } from "models";
-import { getChatHistoryTool } from "tools/get-chat-history";
-import { searchMessagesTool } from "tools/search-messages";
-import { webSearchTool } from "tools/web-search";
-import { addMemoryTool } from "./tools/add-memory";
-import { getGDDPageTool } from "./tools/get-gdd-page";
-import { getMemoryTool } from "./tools/get-memory";
-import { searchGDDTool } from "./tools/search-gdd";
-import { searchMemoriesTool } from "./tools/search-memories";
-import { updateMemoryTool } from "./tools/update-memory";
+import { webSearchTool } from "tools/common/web-search";
+import { z } from "zod";
+import { addMemoryTool, getGDDPageTool, searchGDDTool, searchMemoriesTool, updateMemoryTool } from "./tools";
 
-const INFORMATION_AGENT_PROMPT = `You retrieve information from various sources.
+const InformationOutputSchema = z.object({
+  entities: z.object({
+    characters: z.array(z.string()),
+    styles: z.array(z.string()),
+    objects: z.array(z.string()),
+  }),
+  references: z.object({
+    GDD_pages: z.array(z.string()),
+    memories: z.array(z.string()),
+    Drive_files: z.array(z.string()),
+    chat_messages: z.array(z.string()),
+  }),
+  assumptions: z.array(z.string()),
+  uncertainties: z.array(z.string()),
+});
 
-SOURCES (priority): GDD (Notion) > Memory > Web
+const INFORMATION_AGENT_PROMPT = `You are a Context Agent that gathers structured information for downstream agents.
 
-ACTION RULES:
-- Lists: search_gdd once with relevant term, get page with items
-- Details: ONE search_gdd + get_gdd_page. Stop when you have the answer.
-- Multiple items needed: fetch ALL in ONE iteration (parallel)
-- Web search: ONLY when GDD lacks the info
-- Stop searching once you have the answer - don't over-verify
+RESPONSIBILITIES:
+- Resolve entities (characters, styles, objects) mentioned in the user request
+- Retrieve relevant GDD/Notion pages, project memories, Google Drive files, chat messages
+- Always prioritize GDD > Memory > Drive > Web
+- Analyze previous messages in the conversation if the current message is a reply
+- Avoid redundant searches
 
-Response: Concise, cite sources with URLs.`;
+Always cite the sources with URLs, and do not perform generation. Return concise, structured, actionable context.`;
 
-export class InformationAgent extends Agent {
-  readonly definition = {
-    name: "information_agent",
-    description:
-      "Answers ANY query by searching the web, GDD in Notion, Google Drive, Telegram chat messages history. Use for complex questions, not just for web search.",
-    input_schema: {
-      type: "object" as const,
-      properties: {
-        task: {
-          type: "string" as const,
-          description: "Question to be answered",
-        },
-      },
-      required: ["task"],
-    },
-  };
-
-  constructor() {
-    super(
-      "information_agent",
-      models.thinking,
-      INFORMATION_AGENT_PROMPT,
-      [
-        searchGDDTool,
-        getGDDPageTool,
-        searchMemoriesTool,
-        addMemoryTool,
-        updateMemoryTool,
-        getMemoryTool,
-        webSearchTool,
-        searchDriveFilesTool,
-        searchMessagesTool,
-        getChatHistoryTool,
-      ],
-      4096,
-      2048,
-    );
-  }
-}
+export const informationAgent = new Agent({
+  name: "context_agent",
+  model: models.thinking,
+  instructions: INFORMATION_AGENT_PROMPT,
+  tools: [
+    searchGDDTool,
+    getGDDPageTool,
+    searchMemoriesTool,
+    addMemoryTool,
+    updateMemoryTool,
+    webSearchTool,
+    searchDriveFilesTool,
+  ],
+  outputType: InformationOutputSchema,
+});

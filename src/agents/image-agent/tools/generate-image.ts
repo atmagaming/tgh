@@ -1,91 +1,114 @@
-import type { PersonGeneration } from "@google/genai";
-import type { Tool } from "agents/agent";
-import { logger } from "logger";
-import { geminiClient, type ReferenceImage } from "services/gemini/gemini";
+import { geminiClient } from "services/gemini/gemini";
+import { createTool } from "tools/sdk-tool";
+import { saveTempFile } from "utils";
+import { z } from "zod";
 
-export const generateImageTool: Tool = {
-  definition: {
-    name: "generate_image",
-    description:
-      "Generate images from text description using Gemini AI. Supports style/reference images for consistency. Returns generated image files.",
-    input_schema: {
-      type: "object",
-      properties: {
-        prompt: {
-          type: "string",
-          description: "Detailed description of the image to generate",
-        },
-        reference_images: {
-          type: "array",
-          items: {
-            type: "object",
-            properties: {
-              url: { type: "string", description: "Public URL of reference image" },
-              path: { type: "string", description: "Local file path (from download_drive_file, etc.)" },
-              base64: { type: "string", description: "Base64-encoded image data" },
-              mimeType: { type: "string", description: "MIME type (required for base64)" },
-            },
-          },
-          description:
-            "Style/reference images for generation. Use path for Drive downloads. First image is primary style reference.",
-        },
-        aspectRatio: {
-          type: "string",
-          enum: ["1:1", "3:4", "4:3", "9:16", "16:9"],
-          description: "Aspect ratio. Infer: square/icon→1:1, portrait→9:16 or 3:4, landscape→16:9 or 4:3",
-        },
-        numberOfImages: {
-          type: "number",
-          enum: [1, 2, 3, 4],
-          description: "Number of variations (1-4). 'give me options' → 2-3",
-        },
-        personGeneration: {
-          type: "string",
-          enum: ["dont_allow", "allow_adult", "allow_all"],
-          description: "Control people generation. dont_allow if no people wanted",
-        },
-      },
-      required: ["prompt"],
-    },
-  },
-  execute: async (toolInput, context) => {
-    const prompt = toolInput.prompt as string;
-    const referenceImages = toolInput.reference_images as ReferenceImage[] | undefined;
-    const aspectRatio = toolInput.aspectRatio as "1:1" | "3:4" | "4:3" | "9:16" | "16:9" | undefined;
-    const numberOfImages = (toolInput.numberOfImages as 1 | 2 | 3 | 4 | undefined) ?? 1;
-    const personGeneration = toolInput.personGeneration as PersonGeneration | undefined;
+export const generateImageTool = createTool({
+  name: "generate_image",
+  description:
+    "Generate NEW images or EDIT existing ones using Gemini Nano Banana. Supports creation, targeted edits, style transfer, and character consistency. The tool expects a well-structured narrative prompt and optional reference images. Returns { files: string[]; texts: string[] }.",
+  parameters: z.object({
+    prompt: z.string().describe(
+      `
+PURPOSE
+Create a high-quality text prompt for image generation or image editing.
 
-    logger.info(
-      { prompt, referenceCount: referenceImages?.length ?? 0, aspectRatio, numberOfImages, personGeneration },
-      "Image generation request",
+The tool supports two modes:
+- NEW IMAGE generation
+- EDITING an existing image
+
+────────────────────────
+MUST (Required)
+────────────────────────
+1. Write a narrative prompt in full sentences.
+2. Explicitly indicate intent:
+   - NEW IMAGE: creating a new image
+   - EDIT IMAGE: modifying an existing image
+3. If reference images are used, label them clearly:
+   - "Image 1:", "Image 2:", etc.
+4. For EDIT IMAGE:
+   - Specify what should change.
+   - Specify what must remain unchanged.
+
+────────────────────────
+SHOULD (Strongly Recommended)
+────────────────────────
+- Be hyper-specific about:
+  pose, action, facial expression, style, lighting, composition, mood.
+- Use constraint language for edits:
+  "change only X", "keep face and proportions consistent".
+- When style transfer is required, describe the stylistic elements
+  (brushwork, palette, line quality, rendering approach).
+
+────────────────────────
+OPTIONAL (If Useful)
+────────────────────────
+- Request multiple variations and specify what differs.
+- Specify aspect ratio or framing (e.g., square, 16:9).
+- Mention output quality (high resolution, detailed rendering).
+
+────────────────────────
+REFERENCE IMAGE GUIDANCE
+────────────────────────
+- NEW IMAGE:
+  Image 1 → style reference or character reference.
+- EDIT IMAGE:
+  Image 1 → source image to modify.
+  Image 2 → optional style reference.
+
+────────────────────────
+BEHAVIOR
+────────────────────────
+If the user request is vague, infer intent and expand it into a
+compliant prompt rather than asking follow-up questions.
+
+────────────────────────
+VALID PROMPT EXAMPLES
+────────────────────────
+
+NEW IMAGE:
+"Create a fierce elf warrior in the visual style of Image 1. Match the
+brushwork and earthy color palette. The elf stands in a stormy forest,
+mid-battle, sword raised. Dramatic lighting, dynamic pose.
+Generate two variations. High resolution, cinematic framing."
+
+EDIT IMAGE:
+"Using Image 1 as the base, change the elf’s expression to anger and
+adjust the pose to a more dynamic sword swing. Keep the face, body
+proportions, and overall art style consistent. Add warm golden-hour
+lighting and subtle motion blur."
+      `,
+    ),
+
+    reference_images: z
+      .array(z.string())
+      .optional()
+      .describe(
+        `
+Paths or URLs to reference images.
+
+Label references inside the prompt using:
+"Image 1", "Image 2", etc.
+
+Guidelines:
+- NEW IMAGE:
+  Image 1 → style or character reference.
+- EDIT IMAGE:
+  Image 1 → image to modify.
+  Image 2 → optional style reference.
+
+Maximum: 14 images.
+        `,
+      ),
+  }),
+  execute: async ({ prompt, reference_images }) => {
+    const { images, texts } = await geminiClient.generateImage(prompt, reference_images);
+
+    // Save base64 images to temp files for agent workflows
+    const files = await Promise.all(
+      images.map((base64, i) => saveTempFile(Buffer.from(base64, "base64"), `generated-${i + 1}.png`)),
     );
 
-    context.onProgress?.({
-      type: "status",
-      message: `Generating ${numberOfImages} image${numberOfImages > 1 ? "s" : ""}...`,
-    });
-
-    const base64Images = await geminiClient.generateImage({
-      prompt,
-      referenceImages,
-      aspectRatio,
-      numberOfImages,
-      personGeneration,
-    });
-
-    const files = base64Images.map((base64, i) => ({
-      buffer: Buffer.from(base64, "base64"),
-      mimeType: "image/png",
-      filename: `generated-${i + 1}.png`,
-    }));
-
-    logger.info({ prompt, count: files.length }, "Image generation completed");
-
-    return {
-      success: true,
-      message: `Generated ${files.length} image${files.length > 1 ? "s" : ""}`,
-      prompt,
-      files,
-    };
+    return { files, texts };
   },
-};
+});

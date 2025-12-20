@@ -1,6 +1,6 @@
-import { GoogleGenAI } from "@google/genai";
 import { env } from "env";
 import { logger } from "logger";
+import OpenAI from "openai";
 
 export interface SummarizeToolOptions {
   toolName: string;
@@ -29,8 +29,8 @@ Examples:
 - "Failed to access required data. Please try again or contact support if the issue persists."`;
 
 class Summarizer {
-  private readonly client = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
-  private readonly model = "gemini-2.0-flash"; // Upgraded from flash-lite
+  private readonly client = new OpenAI({ apiKey: env.OPENAI_API_KEY });
+  private readonly model = "gpt-4o-mini";
 
   async summarizeTool(options: SummarizeToolOptions): Promise<string> {
     const { toolName, input, output } = options;
@@ -41,12 +41,13 @@ class Summarizer {
       .replace("{{input}}", inputStr)
       .replace("{{output}}", outputStr);
 
-    const response = await this.client.models.generateContent({
+    const response = await this.client.chat.completions.create({
       model: this.model,
-      contents: [{ text: prompt }],
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: 50,
     });
 
-    const summary = response.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
+    const summary = response.choices[0]?.message?.content?.trim() ?? "";
     if (!summary) logger.warn({ prompt }, "Summarizer: Empty summary received");
     return summary || "Processing...";
   }
@@ -60,12 +61,13 @@ class Summarizer {
       .replace("{{errorMessage}}", errorMessage)
       .replace("{{stackTrace}}", stackTrace);
 
-    const response = await this.client.models.generateContent({
+    const response = await this.client.chat.completions.create({
       model: this.model,
-      contents: [{ text: prompt }],
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: 100,
     });
 
-    const summary = response.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    const summary = response.choices[0]?.message?.content?.trim();
     return summary || "An unexpected error occurred. Please try again.";
   }
 }

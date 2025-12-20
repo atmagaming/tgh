@@ -1,25 +1,14 @@
-import type { Tool } from "agents/agent";
 import { addMemory } from "services/memory/memory-store";
+import { createTool } from "tools/sdk-tool";
+import { z } from "zod";
 
-export const addMemoryTool: Tool = {
-  definition: {
-    name: "add_memory",
-    description: "Store a new memory for future reference. Memories are searchable by semantic similarity.",
-    input_schema: {
-      type: "object",
-      properties: {
-        content: {
-          type: "string",
-          description: "The content to remember (fact, decision, instruction, etc.)",
-        },
-      },
-      required: ["content"],
-    },
-  },
-
-  async execute(input: Record<string, unknown>) {
-    const { content } = input as { content: string };
-
+export const addMemoryTool = createTool({
+  name: "add_memory",
+  description: "Store a new memory for future reference. Memories are searchable by semantic similarity.",
+  parameters: z.object({
+    content: z.string().describe("The content to remember (fact, decision, instruction, etc.)"),
+  }),
+  execute: async ({ content }) => {
     if (!content || content.trim().length === 0) {
       return { success: false, error: "Content cannot be empty" };
     }
@@ -32,4 +21,4 @@ export const addMemoryTool: Tool = {
       message: "Memory stored successfully",
     };
   },
-};
+});

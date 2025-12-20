@@ -1,45 +1,36 @@
-import type { Tool, ToolContext } from "agents/agent";
 import { env } from "env";
 import { logger } from "logger";
 import OpenAI from "openai";
 import { gramjsClient } from "services/telegram";
+import { createTool } from "tools/sdk-tool";
+import { z } from "zod";
 
 const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
 
-export const getMessageInfoTool: Tool = {
-  definition: {
-    name: "get_message_info",
-    description:
-      "Get comprehensive information about a specific message: text, media (voice/photo/document), sender, date, reply relationships (replies to/from), and optionally transcribe voice messages. This is your primary tool for understanding message content and context.",
-    input_schema: {
-      type: "object",
-      properties: {
-        message_id: {
-          type: "number",
-          description: "The ID of the message to get info for",
-        },
-        include_mentions: {
-          type: "boolean",
-          description: "Include message mentions (replies to this message and message it replied to). Default: true",
-        },
-        transcribe_voice: {
-          type: "boolean",
-          description: "If message contains voice, transcribe it using OpenAI Whisper. Default: false",
-        },
-      },
-      required: ["message_id"],
-    },
-  },
-  execute: async (toolInput, context?: ToolContext) => {
-    const messageId = toolInput.message_id as number;
-    const includeMentions = toolInput.include_mentions !== false;
-    const transcribeVoice = toolInput.transcribe_voice === true;
+export const getMessageInfoTool = createTool({
+  name: "get_message_info",
+  description:
+    "Get comprehensive information about a specific message: text, media (voice/photo/document), sender, date, reply relationships (replies to/from), and optionally transcribe voice messages. This is your primary tool for understanding message content and context.",
+  parameters: z.object({
+    message_id: z.number().describe("The ID of the message to get info for"),
+    include_mentions: z
+      .boolean()
+      .optional()
+      .describe("Include message mentions (replies to this message and message it replied to). Default: true"),
+    transcribe_voice: z
+      .boolean()
+      .optional()
+      .describe("If message contains voice, transcribe it using OpenAI Whisper. Default: false"),
+  }),
+  execute: async ({ message_id, include_mentions, transcribe_voice }, context) => {
+    const includeMentions = include_mentions !== false;
+    const transcribeVoice = transcribe_voice === true;
 
-    logger.info({ messageId, includeMentions, transcribeVoice }, "Message info request received");
+    logger.info({ messageId: message_id, includeMentions, transcribeVoice }, "Message info request received");
 
     const [messageInfo, mentions] = await Promise.all([
-      gramjsClient.getMessageInfo(messageId),
-      includeMentions ? gramjsClient.getMessageMentions(messageId) : Promise.resolve(undefined),
+      gramjsClient.getMessageInfo(message_id),
+      includeMentions ? gramjsClient.getMessageMentions(message_id) : Promise.resolve(undefined),
     ]);
 
     const result: Record<string, unknown> = {
@@ -51,10 +42,10 @@ export const getMessageInfoTool: Tool = {
       result.replies = mentions.replies;
     }
 
-    if (transcribeVoice && messageInfo.voice && context?.telegramCtx) {
+    if (transcribeVoice && messageInfo.voice && context?.telegramContext) {
       try {
-        const bot = context.telegramCtx.api;
-        const msg = await bot.forwardMessage(env.ALLOWED_CHAT_ID, env.ALLOWED_CHAT_ID, messageId);
+        const bot = context.telegramContext.api;
+        const msg = await bot.forwardMessage(env.ALLOWED_CHAT_ID, env.ALLOWED_CHAT_ID, message_id);
 
         if (msg.voice) {
           const fileLink = await bot.getFile(msg.voice.file_id);
@@ -72,11 +63,11 @@ export const getMessageInfoTool: Tool = {
           await bot.deleteMessage(env.ALLOWED_CHAT_ID, msg.message_id);
 
           result.voice_transcription = transcription.text;
-          logger.info({ messageId, transcriptionLength: transcription.text.length }, "Voice transcribed");
+          logger.info({ messageId: message_id, transcriptionLength: transcription.text.length }, "Voice transcribed");
         }
       } catch (error) {
         logger.error(
-          { messageId, error: error instanceof Error ? error.message : error },
+          { messageId: message_id, error: error instanceof Error ? error.message : error },
           "Voice transcription failed",
         );
         result.transcription_error = error instanceof Error ? error.message : "Unknown error";
@@ -85,7 +76,7 @@ export const getMessageInfoTool: Tool = {
 
     logger.info(
       {
-        messageId,
+        messageId: message_id,
         hasVoice: !!messageInfo.voice,
         hasMentions: !!mentions,
         transcribed: !!result.voice_transcription,
@@ -94,4 +85,4 @@ export const getMessageInfoTool: Tool = {
     );
     return result;
   },
-};
+});

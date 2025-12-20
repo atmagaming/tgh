@@ -1,29 +1,15 @@
-import type { Tool } from "agents/agent";
 import { updateMemory } from "services/memory/memory-store";
+import { createTool } from "tools/sdk-tool";
+import { z } from "zod";
 
-export const updateMemoryTool: Tool = {
-  definition: {
-    name: "update_memory",
-    description: "Update the content of an existing memory",
-    input_schema: {
-      type: "object",
-      properties: {
-        memoryId: {
-          type: "string",
-          description: "The ID of the memory to update",
-        },
-        newContent: {
-          type: "string",
-          description: "The new content for the memory",
-        },
-      },
-      required: ["memoryId", "newContent"],
-    },
-  },
-
-  async execute(input: Record<string, unknown>) {
-    const { memoryId, newContent } = input as { memoryId: string; newContent: string };
-
+export const updateMemoryTool = createTool({
+  name: "update_memory",
+  description: "Update the content of an existing memory",
+  parameters: z.object({
+    memoryId: z.string().describe("The ID of the memory to update"),
+    newContent: z.string().describe("The new content for the memory"),
+  }),
+  execute: async ({ memoryId, newContent }) => {
     if (!newContent || newContent.trim().length === 0) {
       return { success: false, error: "New content cannot be empty" };
     }
@@ -39,4 +25,4 @@ export const updateMemoryTool: Tool = {
       message: "Memory updated successfully",
     };
   },
-};
+});

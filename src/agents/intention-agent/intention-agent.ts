@@ -1,7 +1,6 @@
-import { Agent } from "agents/agent";
+import { Agent } from "@openai/agents";
 import { models } from "models";
-import { getChatHistoryTool } from "tools/get-chat-history";
-import { searchMessagesTool } from "tools/search-messages";
+import { z } from "zod";
 import { getChatInfoTool } from "./tools/get-chat-info";
 import { getMessageInfoTool } from "./tools/get-message-info";
 
@@ -28,31 +27,23 @@ Guidelines:
 - Search uses AND logic (all terms required)
 - Return concise intention summary with message IDs and links`;
 
-export class IntentionAgent extends Agent {
-  readonly definition = {
-    name: "intention_agent",
-    description:
-      "User intention understanding agent. Use ONLY when user request is unclear or contains ambiguous references that need resolution. Not needed for straightforward requests.",
-    input_schema: {
-      type: "object" as const,
-      properties: {
-        task: {
-          type: "string" as const,
-          description: "The ambiguous user request that needs intention clarification",
-        },
-      },
-      required: ["task"],
-    },
-  };
+const IntentionOutputSchema = z.object({
+  clarified_intent: z.string(),
+  referenced_messages: z.array(
+    z.object({
+      id: z.number(),
+      link: z.string(),
+      snippet: z.string(),
+    }),
+  ),
+  confidence: z.enum(["high", "medium", "low"]),
+  needs_user_clarification: z.boolean(),
+});
 
-  constructor() {
-    super(
-      "intention_agent",
-      models.fast,
-      INTENTION_AGENT_PROMPT,
-      [searchMessagesTool, getChatHistoryTool, getMessageInfoTool, getChatInfoTool],
-      2048,
-      1024,
-    );
-  }
-}
+export const intentionAgent = new Agent({
+  name: "intention_agent",
+  model: models.fast,
+  instructions: INTENTION_AGENT_PROMPT,
+  tools: [getMessageInfoTool, getChatInfoTool],
+  outputType: IntentionOutputSchema,
+});

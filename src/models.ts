@@ -2,9 +2,12 @@
  * Centralized model definitions for different use cases
  */
 export const models = {
-  /** Fast routing and simple tasks - use for quick decisions and routing */
-  fast: "claude-haiku-4-5",
+  /** GPT-5 Nano: Fastest, cheapest - for summarization and classification tasks */
+  nano: "gpt-5-nano",
 
-  /** Complex reasoning and tool use - use for multi-step tasks */
-  thinking: "claude-sonnet-4-20250514",
+  /** GPT-5 mini: Fast, cost-efficient - for well-defined tasks and precise prompts */
+  fast: "gpt-5-mini",
+
+  /** GPT-5.1: Flagship model - for coding and agentic tasks with configurable reasoning */
+  thinking: "gpt-5.1",
 } as const;

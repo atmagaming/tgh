@@ -4,4 +4,5 @@ export { downloadDriveFileTool } from "./download-drive-file";
 export { listDriveFilesTool } from "./list-drive-files";
 export { renameDriveFileTool } from "./rename-drive-file";
 export { searchDriveFilesTool } from "./search-drive-files";
+export { treeDriveTool } from "./tree-drive";
 export { uploadDriveFileTool } from "./upload-drive-file";

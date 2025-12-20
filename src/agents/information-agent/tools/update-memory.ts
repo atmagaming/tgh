@@ -1,31 +1,17 @@
-import type { Tool } from "agents/agent";
 import { logger } from "logger";
 import { updateMemory } from "services/memory/memory-store";
+import { createTool } from "tools/sdk-tool";
+import { z } from "zod";
 
-export const updateMemoryTool: Tool = {
-  definition: {
-    name: "update_memory",
-    description:
-      "Update an existing memory with new information. Use when you need to refine or correct a previously stored memory. The embedding will be recalculated automatically.",
-    input_schema: {
-      type: "object",
-      properties: {
-        memoryId: {
-          type: "string",
-          description: "The ID of the memory to update (from search results)",
-        },
-        newContent: {
-          type: "string",
-          description: "The updated content for this memory",
-        },
-      },
-      required: ["memoryId", "newContent"],
-    },
-  },
-  execute: async (toolInput) => {
-    const memoryId = toolInput.memoryId as string;
-    const newContent = toolInput.newContent as string;
-
+export const updateMemoryTool = createTool({
+  name: "update_memory",
+  description:
+    "Update an existing memory with new information. Use when you need to refine or correct a previously stored memory. The embedding will be recalculated automatically.",
+  parameters: z.object({
+    memoryId: z.string().describe("The ID of the memory to update (from search results)"),
+    newContent: z.string().describe("The updated content for this memory"),
+  }),
+  execute: async ({ memoryId, newContent }) => {
     logger.info({ memoryId, contentLength: newContent.length }, "Update memory request");
 
     const success = await updateMemory(memoryId, newContent);
@@ -37,4 +23,4 @@ export const updateMemoryTool: Tool = {
       message: "Memory updated successfully",
     };
   },
-};
+});

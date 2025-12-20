@@ -1,5 +1,6 @@
-import { Agent } from "agents/agent";
+import { Agent } from "@openai/agents";
 import { models } from "models";
+import { z } from "zod";
 import { createDriveFolderTool } from "./tools/create-drive-folder";
 import { deleteDriveFileTool } from "./tools/delete-drive-file";
 import { downloadDriveFileTool } from "./tools/download-drive-file";
@@ -29,40 +30,33 @@ ACTION RULES:
 
 Response: File names, paths, IDs, webViewLinks. Be concise.`;
 
-export class DriveAgent extends Agent {
-  readonly definition = {
-    name: "drive_agent",
-    description:
-      "Google Drive management agent. Use for listing, searching, uploading, downloading, renaming, and deleting files/folders on Google Drive.",
-    input_schema: {
-      type: "object" as const,
-      properties: {
-        task: {
-          type: "string" as const,
-          description: "The Google Drive operation to perform",
-        },
-      },
-      required: ["task"],
-    },
-  };
+const DriveOutputSchema = z.object({
+  operation: z.string(),
+  files: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      mimeType: z.string().optional(),
+      webViewLink: z.string().optional(),
+      path: z.string().optional(),
+    }),
+  ),
+  summary: z.string(),
+});
 
-  constructor() {
-    super(
-      "drive_agent",
-      models.thinking,
-      DRIVE_AGENT_PROMPT,
-      [
-        treeDriveTool,
-        searchDriveFilesTool,
-        listDriveFilesTool,
-        downloadDriveFileTool,
-        uploadDriveFileTool,
-        createDriveFolderTool,
-        renameDriveFileTool,
-        deleteDriveFileTool,
-      ],
-      2048,
-      512,
-    );
-  }
-}
+export const driveAgent = new Agent({
+  name: "drive_agent",
+  model: models.thinking,
+  instructions: DRIVE_AGENT_PROMPT,
+  tools: [
+    treeDriveTool,
+    searchDriveFilesTool,
+    listDriveFilesTool,
+    downloadDriveFileTool,
+    uploadDriveFileTool,
+    createDriveFolderTool,
+    renameDriveFileTool,
+    deleteDriveFileTool,
+  ],
+  outputType: DriveOutputSchema,
+});

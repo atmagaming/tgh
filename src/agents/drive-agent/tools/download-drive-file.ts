@@ -1,50 +1,42 @@
 import type { Readable } from "node:stream";
-import type { Tool } from "agents/agent";
 import { logger } from "logger";
 import { getDriveClient } from "services/google-drive/google-drive";
-import { saveTempFile } from "utils/temp-files";
+import { createTool } from "tools/sdk-tool";
+import { saveTempFile } from "utils/files";
+import { z } from "zod";
 
-export const downloadDriveFileTool: Tool = {
-  definition: {
-    name: "download_drive_file",
-    description:
-      "Download a file from Google Drive to a local temp file. Returns the file path for further processing (upload to Drive, analyze, use as reference). The file will be automatically sent to the user via output handler.",
-    input_schema: {
-      type: "object",
-      properties: {
-        file_id: {
-          type: "string",
-          description: "The ID of the file to download. Get this from list_drive_files or search_drive_files.",
-        },
-      },
-      required: ["file_id"],
-    },
-  },
-  execute: async (toolInput) => {
-    const fileId = toolInput.file_id as string;
-
+export const downloadDriveFileTool = createTool({
+  name: "download_drive_file",
+  description:
+    "Download a file from Google Drive to a local temp file. Returns the file path for further processing (upload to Drive, analyze, use as reference). The file will be automatically sent to the user via output handler.",
+  parameters: z.object({
+    file_id: z
+      .string()
+      .describe("The ID of the file to download. Get this from list_drive_files or search_drive_files."),
+  }),
+  execute: async ({ file_id }, _context) => {
     // Validate file ID length - Google Drive IDs are typically 28-33 characters
-    if (fileId.length < 20) {
+    if (file_id.length < 20) {
       return {
-        error: `Invalid file ID "${fileId}" - appears truncated (${fileId.length} chars). Google Drive IDs are 28-33 characters. Use search_drive_files to find the file first.`,
+        error: `Invalid file ID "${file_id}" - appears truncated (${file_id.length} chars). Google Drive IDs are 28-33 characters. Use search_drive_files to find the file first.`,
       };
     }
 
-    logger.info({ fileId }, "Downloading Drive file");
+    logger.info({ fileId: file_id }, "Downloading Drive file");
 
     const drive = getDriveClient();
 
     // Get file metadata
     const metadata = await drive.files
       .get({
-        fileId,
+        fileId: file_id,
         fields: "id, name, mimeType, size",
       })
       .catch((error: unknown) => {
         const gaxiosError = error as { code?: number; message?: string };
         if (gaxiosError.code === 404) {
           throw new Error(
-            `Google Drive API: File "${fileId}" not found or not accessible. Verify the ID is complete and correct.`,
+            `Google Drive API: File "${file_id}" not found or not accessible. Verify the ID is complete and correct.`,
           );
         }
         throw new Error(`Google Drive API error: ${gaxiosError.message ?? "Unknown error"}`);
@@ -54,10 +46,10 @@ export const downloadDriveFileTool: Tool = {
     const mimeType = metadata.data.mimeType ?? "application/octet-stream";
     const fileSize = metadata.data.size ? Number.parseInt(metadata.data.size, 10) : undefined;
 
-    logger.info({ fileId, fileName, mimeType, fileSize }, "File metadata retrieved");
+    logger.info({ fileId: file_id, fileName, mimeType, fileSize }, "File metadata retrieved");
 
     // Download file content
-    const response = await drive.files.get({ fileId, alt: "media" }, { responseType: "stream" });
+    const response = await drive.files.get({ fileId: file_id, alt: "media" }, { responseType: "stream" });
 
     const stream = response.data as unknown as Readable;
     const chunks: Buffer[] = [];
@@ -72,11 +64,11 @@ export const downloadDriveFileTool: Tool = {
     // Save to temp file
     const tempPath = await saveTempFile(fileBuffer, ext);
 
-    logger.info({ fileId, fileName, tempPath, size: fileBuffer.length }, "File downloaded to temp");
+    logger.info({ fileId: file_id, fileName, tempPath, size: fileBuffer.length }, "File downloaded to temp");
 
     return {
       success: true,
-      file_id: fileId,
+      file_id,
       file_name: fileName,
       mime_type: mimeType,
       size: fileBuffer.length,
@@ -92,7 +84,7 @@ export const downloadDriveFileTool: Tool = {
       ],
     };
   },
-};
+});
 
 function getExtension(fileName: string, mimeType: string): string {
   // Try to get extension from filename

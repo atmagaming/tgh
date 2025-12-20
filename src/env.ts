@@ -3,7 +3,6 @@ import { z } from "zod";
 const envSchema = z
   .object({
     TELEGRAM_BOT_TOKEN: z.string().min(1, "TELEGRAM_BOT_TOKEN is required"),
-    ANTHROPIC_API_KEY: z.string().min(1, "ANTHROPIC_API_KEY is required"),
     ALLOWED_USER_ID: z.coerce.number(),
     ALLOWED_CHAT_ID: z.coerce.number(),
 
@@ -12,10 +11,10 @@ const envSchema = z
     BASE_URL: z.string(),
 
     // Required API keys
-    MESHY_API_KEY: z.string().min(1, "MESHY_API_KEY is required"),
-    GEMINI_API_KEY: z.string().min(1, "GEMINI_API_KEY is required"),
-    PERPLEXITY_API_KEY: z.string().min(1, "PERPLEXITY_API_KEY is required"),
     OPENAI_API_KEY: z.string().min(1, "OPENAI_API_KEY is required"),
+    GEMINI_API_KEY: z.string().min(1, "GEMINI_API_KEY is required"),
+    MESHY_API_KEY: z.string().min(1, "MESHY_API_KEY is required"),
+    PERPLEXITY_API_KEY: z.string().min(1, "PERPLEXITY_API_KEY is required"),
 
     // Notion Integration
     NOTION_API_KEY: z.string().min(1, "NOTION_API_KEY is required"),
