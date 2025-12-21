@@ -4,6 +4,7 @@ import { memoryAgent } from "agents/memory-agent/memory-agent";
 import { models } from "models";
 import { z } from "zod";
 import { getGDDPageTool, searchGDDTool } from "./tools";
+import { getChatHistoryTool } from "./tools/get-chat-history";
 import { getChatInfoTool } from "./tools/get-chat-info";
 import { getMessageInfoTool } from "./tools/get-message-info";
 
@@ -44,6 +45,7 @@ Resolution Patterns:
 **Telegram Context:**
 - get_message_info: Get message content, media, sender, voice transcription
 - get_chat_info: Get chat history and conversation context
+- get_chat_history: Get recent message history (last N messages) for conversation continuity
 
 **Project Context:**
 - search_gdd / get_gdd_page: Search and retrieve GDD/Notion documentation
@@ -128,6 +130,7 @@ export const contextAgent = new Agent({
     // Telegram context tools (from Intention Agent)
     getMessageInfoTool,
     getChatInfoTool,
+    getChatHistoryTool,
 
     // Project documentation tools (from Information Agent)
     searchGDDTool,

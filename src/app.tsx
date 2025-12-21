@@ -5,6 +5,7 @@ import { GroupRenderer, TelegramRenderer } from "io/output";
 import { Job } from "jobs/job";
 import { JobQueue } from "jobs/job-queue";
 import { logger } from "logger";
+import { chatHistoryStore } from "services/chat-history/chat-history-store";
 import { isBotMentioned } from "utils";
 
 export class App {
@@ -39,6 +40,9 @@ export class App {
       );
 
       if (!userMessage) return;
+
+      // Record message to chat history
+      chatHistoryStore.addMessage(ctx.chat.id, ctx.message);
 
       this.jobQueue.enqueue(new Job(ctx, userMessage, ctx.message.message_id, ctx.chat.id, repliedToMessage));
     });
