@@ -6,10 +6,14 @@ import { z } from "zod";
 export const searchGDDTool = tool({
   name: "search_gdd",
   description:
-    "Search the Game Design Document (GDD) in Notion for specific topics, features, or design decisions. Use when user asks about game design, mechanics, systems, or anything defined in the GDD. Returns matching pages with titles and URLs.",
+    "Search the Game Design Document (GDD) stored in Notion for project documentation, game design specs, mechanics, features, character descriptions, and design decisions. The GDD is the authoritative source for all game-related information. Use this when the user asks about game design, characters, mechanics, systems, art style, story, or any project-specific information. Returns matching Notion pages with titles and URLs.",
   parameters: z.object({
-    query: z.string().describe("Search query for GDD content (e.g., 'player movement', 'enemy AI', 'skill system')"),
-    limit: z.number().min(1).max(20).optional().describe("Maximum number of results (default: 5, max: 20)"),
+    query: z
+      .string()
+      .describe(
+        "Search query for GDD/Notion content. Examples: 'player movement mechanics', 'Lucy character design', 'enemy AI behavior', 'skill system'",
+      ),
+    limit: z.number().min(1).max(20).optional().describe("Maximum number of results to return (default: 5, max: 20)"),
   }),
   execute: async ({ query, limit }) => {
     const maxLimit = limit ?? 5;
