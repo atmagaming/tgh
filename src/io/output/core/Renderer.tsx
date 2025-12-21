@@ -71,8 +71,7 @@ export abstract class Renderer implements IRenderer {
             this.currentRoot = undefined;
             unmount();
             resolve();
-          }}
-        >
+          }}>
           {element}
         </FinishRenderProvider>
       );
