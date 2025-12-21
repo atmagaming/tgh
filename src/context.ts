@@ -36,6 +36,9 @@ export interface AppContext {
 
   /** Optional file output callback (automatically called for tools returning files) */
   onFile?: (file: FileData) => void;
+
+  /** Optional thinking/reasoning callback for displaying model reasoning */
+  onThinking?: (text: string) => void;
 }
 
 /**

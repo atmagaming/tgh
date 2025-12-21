@@ -27,6 +27,7 @@ export class Job {
   toAppContext(options?: {
     onProgress?: (event: ProgressEvent) => void;
     onFile?: (file: FileData) => void;
+    onThinking?: (text: string) => void;
   }): AppContext {
     return {
       id: this.id,
@@ -39,6 +40,7 @@ export class Job {
       events: this.events,
       onProgress: options?.onProgress,
       onFile: options?.onFile,
+      onThinking: options?.onThinking,
     };
   }
 }

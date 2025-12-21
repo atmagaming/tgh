@@ -1,5 +1,5 @@
 import type { Agent, RunResult } from "@openai/agents";
-import { run } from "@openai/agents";
+import { type RunItemStreamEvent, run } from "@openai/agents";
 import { getContext } from "context-provider";
 import { searchMemories } from "services/memory/memory-store";
 
@@ -79,7 +79,47 @@ export async function runAgentWithEvents<TOutput = unknown, TContext = unknown, 
   });
 
   try {
-    // Use enriched input for the agent call
+    // Use streaming to capture thinking blocks if callback provided
+    if (context.onThinking) {
+      const streamResult = await run<TOutput>(agent, enrichedInput, { ...options, stream: true });
+
+      // Process stream events
+      for await (const event of streamResult) {
+        if (event.type === "run_item_stream_event") {
+          const itemEvent = event as RunItemStreamEvent;
+
+          // Capture reasoning/thinking blocks
+          if (itemEvent.name === "reasoning_item_created" && itemEvent.item.type === "reasoning_item") {
+            const reasoningItem = itemEvent.item.rawItem;
+            if (reasoningItem && "content" in reasoningItem) {
+              // Extract reasoning text from content array
+              const reasoningTexts = reasoningItem.content
+                .filter((c): c is { type: string; text: string } => "text" in c)
+                .map((c) => c.text);
+
+              if (reasoningTexts.length > 0) {
+                context.onThinking?.(reasoningTexts.join("\n"));
+              }
+            }
+          }
+        }
+      }
+
+      const durationMs = Date.now() - startTime;
+
+      // Emit agent completed event
+      context.events.emit({
+        type: "agent_completed",
+        agentName: agent.name,
+        durationMs,
+        success: true,
+        outputSummary: JSON.stringify(streamResult.finalOutput).slice(0, 200),
+      });
+
+      return streamResult as RunResult<TOutput>;
+    }
+
+    // Non-streaming path when onThinking is not provided
     const result = await run<TOutput>(agent, enrichedInput, options);
     const durationMs = Date.now() - startTime;
 
