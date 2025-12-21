@@ -1,6 +1,5 @@
-import { env } from "env";
 import { logger } from "logger";
-import OpenAI from "openai";
+import { openai } from "./client";
 
 export interface DocumentWithEmbedding {
   id: string;
@@ -15,13 +14,12 @@ export interface SimilarityResult {
 }
 
 export class EmbeddingsService {
-  private readonly openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
   private readonly model = "text-embedding-3-small";
 
   async createEmbedding(text: string): Promise<number[]> {
     logger.debug({ textLength: text.length }, "Creating embedding");
 
-    const response = await this.openai.embeddings.create({
+    const response = await openai.embeddings.create({
       model: this.model,
       input: text,
     });

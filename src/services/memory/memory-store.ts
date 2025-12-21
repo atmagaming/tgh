@@ -266,10 +266,6 @@ function getCache(): MemoryCache {
   return memoryCache;
 }
 
-// ============================================================================
-// Notion Client
-// ============================================================================
-
 const notionClient = new Client({ auth: env.NOTION_API_KEY });
 const notionDatabaseId = env.NOTION_DATABASE_ID;
 
@@ -306,10 +302,6 @@ async function archiveNotionPage(pageId: string): Promise<void> {
     archived: true,
   });
 }
-
-// ============================================================================
-// Local Cache Helpers (for optimistic updates)
-// ============================================================================
 
 /** Add memory to local cache only (no Notion sync) */
 async function addMemoryLocal(content: string, id: string): Promise<void> {
@@ -431,10 +423,6 @@ memorySyncService.registerFunctions({
   update: updateMemoryInNotion,
   delete: deleteMemoryFromNotion,
 });
-
-// ============================================================================
-// Public API
-// ============================================================================
 
 /** Search memories by semantic similarity */
 export async function searchMemories(query: string, topK = 5): Promise<(Memory & { similarity: number })[]> {

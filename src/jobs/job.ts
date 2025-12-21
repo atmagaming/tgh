@@ -1,7 +1,9 @@
-import { EventEmitter, random } from "@elumixor/frontils";
+import { EventEmitter } from "@elumixor/event-emitter";
+import { random } from "@elumixor/frontils";
 import type { AppContext, FileData, ProgressEvent } from "context";
 import type { ExecutionEvent } from "events/event-types";
-import type { Context, Message } from "grammy";
+import type { Context } from "grammy";
+import type { Message } from "grammy/types";
 import { summarizer } from "services/summarizer";
 
 export class Job {
@@ -18,6 +20,7 @@ export class Job {
     readonly repliedToMessage?: Message,
   ) {
     console.log(`Created job ${this.id} for message ${userMessage}`);
+    // todo: this should be in the field declaration. But there, this.userMessage is undefined. Why? Previously it was working.
     this.summarizedName = summarizer.summarizeWorkflow(this.userMessage);
   }
 

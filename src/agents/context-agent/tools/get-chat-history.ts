@@ -1,13 +1,13 @@
+import { tool } from "@openai/agents";
 import { getContext } from "context-provider";
 import { chatHistoryStore } from "services/chat-history/chat-history-store";
-import { createTool } from "tools/sdk-tool";
 import { z } from "zod";
 
 /**
  * Retrieve recent message history from the current chat
  * Useful for understanding conversation context and continuity
  */
-export const getChatHistoryTool = createTool({
+export const getChatHistoryTool = tool({
   name: "get_chat_history",
   description:
     "Get the last N messages from the current chat for conversation context. Returns message text, sender info, and timestamps. Use when you need to understand the flow of recent conversation.",
