@@ -3,6 +3,7 @@ import { JobStatus } from "@components/JobStatus";
 import { run, withTrace } from "@openai/agents";
 import { useJob } from "@providers/JobProvider";
 import { masterAgent } from "agents/master-agent/master-agent";
+import { runWithContext } from "context-provider";
 import { Message } from "io/output";
 import { parse } from "partial-json";
 import { useEffect, useState } from "react";
@@ -19,36 +20,49 @@ export function Main() {
 
     void (async () => {
       try {
-        await withTrace(
-          await job.summarizedName,
-          async () => {
-            const stream = await run(masterAgent, job.userMessage, {
-              stream: true,
-            });
+        const context = job.toAppContext({
+          onProgress: (event) => {
+            // TODO: Handle progress events (Phase 3.1)
+            console.log("Progress:", event);
+          },
+          onFile: (file) => {
+            // TODO: Handle file outputs (Phase 3.2)
+            console.log("File output:", file.filename);
+          },
+        });
 
-            let current = "";
+        await runWithContext(context, async () => {
+          await withTrace(
+            await job.summarizedName,
+            async () => {
+              const stream = await run(masterAgent, job.userMessage, {
+                stream: true,
+              });
 
-            for await (const chunk of stream.toTextStream()) {
-              current += chunk;
-              if (cancelled) return;
+              let current = "";
 
-              let parsed: string;
-              try {
-                parsed = parse(current).response;
-              } catch {
-                parsed = "";
+              for await (const chunk of stream.toTextStream()) {
+                current += chunk;
+                if (cancelled) return;
+
+                let parsed: string;
+                try {
+                  parsed = parse(current).response;
+                } catch {
+                  parsed = "";
+                }
+
+                setResult(parsed);
               }
 
-              setResult(parsed);
-            }
+              await stream.completed;
 
-            await stream.completed;
-
-            if (cancelled) return;
-            job.done = true;
-          },
-          { traceId: `trace_${job.id}` },
-        );
+              if (cancelled) return;
+              job.done = true;
+            },
+            { traceId: `trace_${job.id}` },
+          );
+        });
       } catch (error) {
         if (cancelled) return;
         setResult(String(error));

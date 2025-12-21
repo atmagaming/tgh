@@ -1,8 +1,12 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as readline from "node:readline/promises";
+import { random } from "@elumixor/frontils";
 import { run } from "@openai/agents";
 import { masterAgent } from "agents/master-agent/master-agent";
+import type { AppContext } from "context";
+import { runWithContext } from "context-provider";
+import type { Context } from "grammy";
 import { parseArgs } from "utils/argparser";
 
 const historyFile = path.join(process.cwd(), ".cli_history");
@@ -24,7 +28,25 @@ const saveHistory = (rl: readline.Interface) => {
 
 const processMessage = async (message: string): Promise<void> => {
   console.log();
-  const result = await run(masterAgent, message);
+
+  // Create a minimal AppContext for CLI (no Telegram context available)
+  const context: AppContext = {
+    id: random.string(32).toLowerCase(),
+    link: "cli://local",
+    telegramContext: undefined as unknown as Context, // CLI doesn't have Telegram context
+    messageId: 0,
+    chatId: 0,
+    userMessage: message,
+    onProgress: (event) => {
+      console.log("[Progress]", event);
+    },
+    onFile: (file) => {
+      console.log(`[File Output] ${file.filename} (${file.mimeType})`);
+    },
+  };
+
+  const result = await runWithContext(context, () => run(masterAgent, message));
+
   console.log();
   console.log(result.finalOutput);
 };

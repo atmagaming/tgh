@@ -11,10 +11,8 @@ export const deleteMemoryTool = tool({
   execute: async ({ memoryId }) => {
     const deleted = await deleteMemory(memoryId);
 
-    if (!deleted) {
-      return { success: false, error: `Memory not found: ${memoryId}` };
-    }
+    if (!deleted) throw new Error(`Memory not found: ${memoryId}`);
 
-    return { success: true, message: `Memory ${memoryId} deleted successfully` };
+    return { message: `Memory ${memoryId} deleted successfully` };
   },
 });

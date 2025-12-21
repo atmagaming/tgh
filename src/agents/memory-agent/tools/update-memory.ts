@@ -10,18 +10,13 @@ export const updateMemoryTool = tool({
     newContent: z.string().describe("The new content for the memory"),
   }),
   execute: async ({ memoryId, newContent }) => {
-    if (!newContent || newContent.trim().length === 0) {
-      return { success: false, error: "New content cannot be empty" };
-    }
+    if (!newContent || newContent.trim().length === 0) throw new Error("New content cannot be empty");
 
     const updated = await updateMemory(memoryId, newContent.trim());
 
-    if (!updated) {
-      return { success: false, error: `Memory not found: ${memoryId}` };
-    }
+    if (!updated) throw new Error(`Memory not found: ${memoryId}`);
 
     return {
-      success: true,
       message: "Memory updated successfully",
     };
   },

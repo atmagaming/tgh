@@ -9,14 +9,11 @@ export const addMemoryTool = tool({
     content: z.string().describe("The content to remember (fact, decision, instruction, etc.)"),
   }),
   execute: async ({ content }) => {
-    if (!content || content.trim().length === 0) {
-      return { success: false, error: "Content cannot be empty" };
-    }
+    if (!content || content.trim().length === 0) throw new Error("Content cannot be empty");
 
     const memoryId = await addMemory(content.trim());
 
     return {
-      success: true,
       memoryId,
       message: "Memory stored successfully",
     };
