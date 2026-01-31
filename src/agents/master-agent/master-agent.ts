@@ -1,11 +1,10 @@
-import { webSearchTool } from "@openai/agents";
-import { type AppContext, StreamingAgent } from "@agents/streaming-agent";
 import { contextAgent } from "@agents/context-agent/context-agent";
 import { driveAgent } from "@agents/drive-agent/drive-agent";
 import { imageAgent } from "@agents/image-agent/image-agent";
 import { memoryAgent } from "@agents/memory-agent/memory-agent";
+import { type AppContext, StreamingAgent } from "@agents/streaming-agent";
+import { webSearchTool } from "@openai/agents";
 import { getAPIBalancesTool } from "tools/common/get-api-balances";
-import { z } from "zod";
 
 const MASTER_AGENT_SYSTEM_PROMPT = `
 You are the Master Agent, a general-purpose orchestrator assistant.
@@ -41,8 +40,7 @@ General principles:
 
 Remember:
 - Your role is to **orchestrate**, not execute
-- Context and project knowledge is **dynamic** and provided externally
-- All outputs must follow the structured JSON format strictly`;
+- Context and project knowledge is **dynamic** and provided externally`;
 
 export const masterAgent = new StreamingAgent<AppContext>({
   name: "master_agent",
@@ -63,14 +61,4 @@ export const masterAgent = new StreamingAgent<AppContext>({
       description: "Manage Google Drive files and folders (search, upload, download, organize)",
     },
   ],
-  outputType: z.object({
-    response: z.string(),
-    actions_taken: z.array(
-      z.object({
-        tool: z.string(),
-        action: z.string(),
-        result: z.string(),
-      }),
-    ),
-  }),
 });

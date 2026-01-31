@@ -1,4 +1,5 @@
 import { EventEmitter } from "@elumixor/event-emitter";
+import { random } from "@elumixor/frontils";
 import { Agent, type RunStreamEvent, run, type Tool, tool } from "@openai/agents";
 import type { Context } from "grammy";
 import { z } from "zod";
@@ -13,6 +14,7 @@ export interface AppContext {
 
 export interface ToolCallData {
   type: "tool";
+  id: string;
   name: string;
   input: Record<string, unknown>;
   log: EventEmitter<string>;
@@ -23,6 +25,7 @@ export interface ToolCallData {
 
 export interface AgentCallData {
   type: "agent";
+  id: string;
   name: string;
   input: string;
   reasoning: DeltaStream;
@@ -185,6 +188,7 @@ export class StreamingAgent<TContext = unknown, TOutput = unknown> {
       execute: async ({ input }) => {
         const callData: AgentCallData = {
           type: "agent",
+          id: random.string(8),
           name: nestedAgent.name,
           input,
           reasoning: new DeltaStream(),
@@ -226,6 +230,7 @@ export class StreamingAgent<TContext = unknown, TOutput = unknown> {
       execute: async (args) => {
         const callData: ToolCallData = {
           type: "tool",
+          id: random.string(8),
           name: def.name,
           input: args as Record<string, unknown>,
           log: new EventEmitter<string>(),

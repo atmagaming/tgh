@@ -24,7 +24,7 @@ export function Steps({ steps, depth, root, hasOutput, getPrefix, onNestedSummar
           </Line>
         ) : (
           <Tool
-            key={step.data.name}
+            key={step.data.id}
             depth={depth + 1}
             data={step.data}
             isLast={index === steps.length - 1 && (root || !hasOutput)}

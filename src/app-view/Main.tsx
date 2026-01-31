@@ -1,12 +1,13 @@
 import type { AgentCallData } from "@agents";
+import { masterAgent } from "@agents/master-agent/master-agent";
 import { JobStatus } from "@components/JobStatus";
 import { Tool } from "@components/Tool";
+import { random } from "@elumixor/frontils";
 import { useEffectAsync, usePromise } from "@hooks";
 import { useJob } from "@providers/JobProvider";
 import { LinkPreviewProvider } from "@providers/LinkPreviewProvider";
 import { Message } from "io/output";
 import { useMemo } from "react";
-import { masterAgent } from "./mock";
 
 export function Main() {
   const job = useJob();
@@ -15,8 +16,9 @@ export function Main() {
   const agentData = useMemo<AgentCallData>(
     () => ({
       type: "agent",
+      id: random.string(8),
       name: masterAgent.name,
-      input: "Use MathAgent to add 5 and 7",
+      input: job.userMessage,
       reasoning: masterAgent.reasoning,
       output: masterAgent.output,
       log: masterAgent.log,
@@ -26,7 +28,11 @@ export function Main() {
   );
 
   useEffectAsync(async () => {
-    await masterAgent.run("Use MathAgent to add 5 and 7", { job });
+    await masterAgent.run(job.userMessage, {
+      chatId: job.chatId,
+      messageId: job.messageId,
+      userMessage: job.userMessage,
+    });
     await summarized;
     job.done = true;
   }, []);

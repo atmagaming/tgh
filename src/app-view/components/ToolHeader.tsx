@@ -8,9 +8,11 @@ interface ToolHeaderProps {
 }
 
 export function ToolHeader({ name, input, prefix, root }: ToolHeaderProps) {
+  if (root) return null;
+
   return (
     <Line>
-      {root ? "" : prefix}
+      {prefix}
       <b>{name}</b>({input})
     </Line>
   );
