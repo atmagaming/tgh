@@ -1,20 +1,21 @@
+import { tool } from "@openai/agents";
 import { logger } from "logger";
 import { gramjsClient } from "services/telegram";
-import { Tool } from "tools/tool";
 import { z } from "zod/v4";
 
-export const getChatHistoryTool = new Tool(
-  "get_chat_history",
-  "Get recent chat history from the current Telegram chat. Returns messages in reverse chronological order (newest first). Use when user asks to see recent messages or conversation history.",
-  {
+export const getChatHistoryTool = tool({
+  name: "get_chat_history",
+  description:
+    "Get recent chat history from the current Telegram chat. Returns messages in reverse chronological order (newest first). Use when user asks to see recent messages or conversation history.",
+  parameters: z.object({
     limit: z.number().min(1).max(100).optional().describe("Number of messages to retrieve (default: 10, max: 100)"),
     offset: z
       .number()
       .min(0)
       .optional()
       .describe("Offset from the most recent message (default: 0). Use this to paginate through older messages."),
-  },
-  async ({ limit, offset }) => {
+  }),
+  async execute({ limit, offset }) {
     const messageLimit = limit ?? 10;
     const messageOffset = offset ?? 0;
 
@@ -36,4 +37,4 @@ export const getChatHistoryTool = new Tool(
       })),
     };
   },
-);
+});

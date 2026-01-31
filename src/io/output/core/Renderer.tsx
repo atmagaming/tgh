@@ -54,10 +54,19 @@ export abstract class Renderer implements IRenderer {
       false,
       false,
       "",
-      () => {},
-      () => {},
-      () => {},
-      () => {},
+      (error) => {
+        logger.error("React uncaught error:");
+        console.error(error);
+      },
+      (error) => {
+        logger.error("React caught error:");
+        console.error(error);
+      },
+      (error) => {
+        logger.warn("React recoverable error:");
+        console.error(error);
+      },
+      () => logger.error("React scheduler error:"),
       null,
     );
 

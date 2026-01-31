@@ -44,15 +44,11 @@ export class App {
       // Record message to chat history
       chatHistoryStore.addMessage(ctx.chat.id, ctx.message);
 
-      this.jobQueue.enqueue(new Job(ctx, userMessage, ctx.message.message_id, ctx.chat.id, repliedToMessage));
+      this.jobQueue.enqueue(new Job(ctx, userMessage, ctx.message.message_id, ctx.chat.id));
     });
   }
 
   private async processJob(job: Job): Promise<void> {
-    // const telegramRenderer = new TelegramRenderer(job.telegramContext);
-    // const consoleRenderer = new ConsoleRenderer();
-    // const renderer = new GroupRenderer(telegramRenderer, consoleRenderer);
-
     const telegramRenderer = new TelegramRenderer(job.telegramContext);
     const renderer = new GroupRenderer(telegramRenderer);
 

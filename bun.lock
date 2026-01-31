@@ -7,7 +7,7 @@
       "dependencies": {
         "@anthropic-ai/sdk": "^0.71.2",
         "@elumixor/event-emitter": "^1.0.7",
-        "@elumixor/extensions": "^2.1.5",
+        "@elumixor/extensions": "^2.2.0",
         "@elumixor/frontils": "^3.0.15",
         "@google/genai": "^1.34.0",
         "@notionhq/client": "^5.6.0",
@@ -67,7 +67,7 @@
 
     "@elumixor/event-emitter": ["@elumixor/event-emitter@1.0.7", "", {}, "sha512-mlnDlcuHuo4qYdp48vKOJBFUpNWtMYtUMh8lVCIKyt5/20SfIM3lx/3T0gedfiko20JDJbnP7lvL+1P8M8i2Lw=="],
 
-    "@elumixor/extensions": ["@elumixor/extensions@2.1.5", "", {}, "sha512-GuXlxFpNB6t1ygMkUwBJ+O90J4MAfbfz67kFQ8LvvAN21UIa1Lwi4ZxH0k1a0/qe06bMpx8rzDEfhMUoRW1ejA=="],
+    "@elumixor/extensions": ["@elumixor/extensions@2.2.0", "", {}, "sha512-xh0IfiTh3jkx4Swxoqfh8v3qLJK0qc6+qm2nl90CO4teXe9gwj6xFhRxJGIkRlxuCugGrOU3u/YQQ83ssVK3pQ=="],
 
     "@elumixor/frontils": ["@elumixor/frontils@3.0.15", "", {}, "sha512-4fMtdyaLodLfyf9xX/ATd0wVfMBsBBkgYKb0SD6Ia7Anbry0BTm3Rpp5kezovxpV+3cYHTBe+gtFTKTYpMOFUw=="],
 

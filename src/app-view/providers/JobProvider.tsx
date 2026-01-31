@@ -17,7 +17,6 @@ export function JobProvider({ job, children }: { job: Job; children: ReactNode }
 
   const value: JobContextValue = {
     ...job,
-    toAppContext: job.toAppContext.bind(job),
     get done() {
       return done;
     },
