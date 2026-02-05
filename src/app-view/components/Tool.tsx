@@ -99,7 +99,7 @@ export function Tool({ data, root = false, depth = 0, isLast = true, onSummarize
     return (
       <Line>
         {summaryPrefix}
-        {name}: <i>{summary}</i>
+        <b>{name}</b> 🔧: <i>{summary}</i>
       </Line>
     );
 

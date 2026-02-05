@@ -13,7 +13,7 @@ export function ToolHeader({ name, input, prefix, root }: ToolHeaderProps) {
   return (
     <Line>
       {prefix}
-      <b>{name}</b>({input})
+      <b>{name}</b> 🔧 ({input})
     </Line>
   );
 }

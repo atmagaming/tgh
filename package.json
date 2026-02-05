@@ -12,7 +12,6 @@
     "test": "bun test",
     "test:manual": "RUN_MANUAL_TESTS=1 bun test",
     "lint": "tsc --noEmit && biome check .",
-    "memory": "bun run scripts/view-memories.tsx",
     "login": "bun run scripts/telegram-login.ts"
   },
   "dependencies": {
@@ -31,6 +30,7 @@
     "ink-spinner": "^5.0.0",
     "minimatch": "^10.1.1",
     "openai": "^6.14.0",
+    "ora": "^9.2.0",
     "partial-json": "^0.1.7",
     "pino": "^10.1.0",
     "pino-pretty": "^13.1.3",

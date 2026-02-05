@@ -3,7 +3,7 @@ import "@elumixor/extensions";
 import { env } from "env";
 import { webhookCallback } from "grammy";
 import { logger } from "logger";
-import { syncWithNotion } from "services/memory/memory-store";
+import { memories } from "services/memories";
 import { gramjsClient } from "services/telegram";
 import { App } from "./app.tsx";
 
@@ -15,8 +15,8 @@ try {
   process.exit(1);
 }
 
-// Sync memories with Notion (non-blocking background operation)
-syncWithNotion();
+// Initialize memories (sync with Notion once on startup)
+await memories.initialize();
 
 const app = new App();
 

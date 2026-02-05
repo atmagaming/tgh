@@ -4,7 +4,7 @@ import type { Job } from "jobs/job";
 import { logger } from "logger";
 import { createContext, type ReactNode, useContext, useState } from "react";
 
-export interface JobContextValue extends Omit<Job, "telegramContext"> {
+export interface JobContextValue extends Job {
   done: boolean;
 }
 
@@ -17,6 +17,9 @@ export function JobProvider({ job, children }: { job: Job; children: ReactNode }
 
   const value: JobContextValue = {
     ...job,
+    get chatId() {
+      return job.chatId;
+    },
     get done() {
       return done;
     },

@@ -17,7 +17,7 @@ describe.skipIf(!process.env.RUN_MANUAL_TESTS)("GramJSClient (manual)", () => {
     "should search for messages with a common keyword",
     async () => {
       const query = "cat";
-      const results = await client.searchMessages({
+      const results = await client.getMessages({
         query,
         limit: 5,
       });
@@ -38,7 +38,7 @@ describe.skipIf(!process.env.RUN_MANUAL_TESTS)("GramJSClient (manual)", () => {
   test(
     "should handle empty search results",
     async () => {
-      const results = await client.searchMessages({
+      const results = await client.getMessages({
         query: "xyznonexistentkeywordabc123",
         limit: 5,
       });
@@ -54,7 +54,7 @@ describe.skipIf(!process.env.RUN_MANUAL_TESTS)("GramJSClient (manual)", () => {
     "should respect limit parameter",
     async () => {
       const limit = 3;
-      const results = await client.searchMessages({
+      const results = await client.getMessages({
         query: "the",
         limit,
       });
@@ -69,7 +69,7 @@ describe.skipIf(!process.env.RUN_MANUAL_TESTS)("GramJSClient (manual)", () => {
   test(
     "should search with special characters",
     async () => {
-      const results = await client.searchMessages({
+      const results = await client.getMessages({
         query: "!",
         limit: 5,
       });
@@ -81,9 +81,9 @@ describe.skipIf(!process.env.RUN_MANUAL_TESTS)("GramJSClient (manual)", () => {
   );
 
   test(
-    "should include sender ID when available",
+    "should include user info when available",
     async () => {
-      const results = await client.searchMessages({
+      const results = await client.getMessages({
         query: "message",
         limit: 5,
       });
@@ -91,9 +91,8 @@ describe.skipIf(!process.env.RUN_MANUAL_TESTS)("GramJSClient (manual)", () => {
       expect(results).toBeArray();
 
       for (const msg of results) {
-        if (msg.senderId) {
-          expect(msg.senderId).toBeNumber();
-          console.log(`  Message ${msg.id} from sender ${msg.senderId}`);
+        if (msg.userName || msg.fullName) {
+          console.log(`  Message ${msg.id} from ${msg.fullName ?? msg.userName}`);
         }
       }
     },
@@ -103,7 +102,7 @@ describe.skipIf(!process.env.RUN_MANUAL_TESTS)("GramJSClient (manual)", () => {
   test(
     "should handle large limit by capping at 100",
     async () => {
-      const results = await client.searchMessages({
+      const results = await client.getMessages({
         query: "a",
         limit: 200,
       });
@@ -118,7 +117,7 @@ describe.skipIf(!process.env.RUN_MANUAL_TESTS)("GramJSClient (manual)", () => {
   test(
     "should return messages in reverse chronological order",
     async () => {
-      const results = await client.searchMessages({
+      const results = await client.getMessages({
         query: "bot",
         limit: 10,
       });

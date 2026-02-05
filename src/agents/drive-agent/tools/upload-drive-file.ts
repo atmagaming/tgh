@@ -1,14 +1,14 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { Readable } from "node:stream";
-import type { AppContext, ToolDefinition } from "@agents/streaming-agent";
+import type { ToolDefinition } from "@agents/streaming-agent";
 import type { Context } from "grammy";
 import { logger } from "logger";
 import { getDriveClient } from "services/google-drive/google-drive";
 import { detectMimeType } from "utils/files";
 import { z } from "zod";
 
-export const uploadDriveFileTool: ToolDefinition<z.ZodType, AppContext> = {
+export const uploadDriveFileTool: ToolDefinition = {
   name: "upload_drive_file",
   description:
     "Upload a file to Google Drive. Accepts multiple input types: Telegram message_id, local file path, URL, or base64 data. IMPORTANT: You must specify a folder_id - service accounts cannot upload to root.",

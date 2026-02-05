@@ -62,7 +62,12 @@ Examples:
     });
 
     logger.info(
-      { query: queryStr, results: result.files.length, apiCalls: result.apiCalls, timeMs: result.executionTimeMs.toFixed(0) },
+      {
+        query: queryStr,
+        results: result.files.length,
+        apiCalls: result.apiCalls,
+        timeMs: result.executionTimeMs.toFixed(0),
+      },
       "Drive search completed",
     );
 

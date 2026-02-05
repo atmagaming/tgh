@@ -1,16 +1,9 @@
 import { EventEmitter } from "@elumixor/event-emitter";
 import { random } from "@elumixor/frontils";
-import { Agent, type RunStreamEvent, run, type Tool, tool } from "@openai/agents";
-import type { Context } from "grammy";
+import { Agent, type RunStreamEvent, run, type Tool, tool, withTrace } from "@openai/agents";
+import type { Job } from "jobs/job";
 import { z } from "zod";
 import { DeltaStream } from "./utils";
-
-export interface AppContext {
-  telegramContext?: Context;
-  chatId: number;
-  messageId: number;
-  userMessage: string;
-}
 
 export interface ToolCallData {
   type: "tool";
@@ -37,40 +30,43 @@ export interface AgentCallData {
 
 export type CallData = ToolCallData | AgentCallData;
 
-export interface ToolDefinition<TParams extends z.ZodType = z.ZodType, TContext = unknown, TReturn = unknown> {
+export interface ToolDefinition<TParams extends z.ZodType = z.ZodType, TReturn = unknown> {
   name: string;
   description: string;
   parameters: TParams;
-  // biome-ignore lint/suspicious/noExplicitAny: Allow flexible typing for tool definitions
-  execute: (params: any, context: TContext) => TReturn | Promise<TReturn>;
+  execute: (params: z.infer<TParams>, context: Job) => TReturn | Promise<TReturn>;
 }
 
-export interface NestedAgent<TContext = unknown> {
-  // biome-ignore lint/suspicious/noExplicitAny: Allow any output type for nested agents
-  agent: StreamingAgent<TContext, any>;
+export function defineTool<TParams extends z.ZodType, TReturn = unknown>(
+  name: string,
+  description: string,
+  parameters: TParams,
+  execute: (params: z.infer<TParams>, context: Job) => TReturn | Promise<TReturn>,
+): ToolDefinition<TParams, TReturn> {
+  return { name, description, parameters, execute };
+}
+
+export interface NestedAgent {
+  agent: StreamingAgent;
   description: string;
 }
 
-export type ToolInput<TContext = unknown> =
-  | ToolDefinition<z.ZodType, TContext>
-  // biome-ignore lint/suspicious/noExplicitAny: Allow any output type for nested agents
-  | StreamingAgent<TContext, any>
-  | NestedAgent<TContext>
-  | Tool;
+export type ToolInput = ToolDefinition | StreamingAgent | NestedAgent | Tool;
 
-export interface StreamingAgentOptions<TContext = unknown, TOutput = unknown> {
+export type InstructionsInput = string | ((context: Job) => string | Promise<string>);
+
+export interface StreamingAgentOptions {
   name: string;
   model: string;
-  instructions?: string;
-  tools?: ToolInput<TContext>[];
-  outputType?: z.ZodType<TOutput>;
+  instructions?: InstructionsInput;
+  tools?: ToolInput[];
   modelSettings?: {
     reasoning?: { effort?: "low" | "medium" | "high"; summary?: "auto" | "concise" | "detailed" };
     text?: { verbosity?: "low" | "medium" | "high" };
   };
 }
 
-export class StreamingAgent<TContext = unknown, TOutput = unknown> {
+export class StreamingAgent {
   readonly reasoning = new DeltaStream();
   readonly output = new DeltaStream();
   readonly log = new EventEmitter<string>();
@@ -78,57 +74,57 @@ export class StreamingAgent<TContext = unknown, TOutput = unknown> {
 
   private readonly agent;
   private currentMode: "reasoning" | "output" | "tool" = "output";
-  private _context: TContext | undefined;
+  private _context: Job | undefined;
 
-  constructor({
-    name,
-    tools = [],
-    model,
-    instructions,
-    outputType,
-    modelSettings,
-  }: StreamingAgentOptions<TContext, TOutput>) {
+  constructor({ name, tools = [], model, instructions, modelSettings }: StreamingAgentOptions) {
+    // Convert our instructions format to OpenAI's format
+    const agentInstructions =
+      typeof instructions === "function"
+        ? (runContext: { context: Job }) => instructions(runContext.context)
+        : instructions;
+
     this.agent = new Agent({
       name,
       model,
-      instructions,
+      instructions: agentInstructions,
       tools: tools.map((t) => this.wrapTool(t)),
-      outputType,
       modelSettings,
     });
   }
 
-  private wrapTool(t: ToolInput<TContext>): Tool {
+  private wrapTool(t: ToolInput): Tool {
     if (t instanceof StreamingAgent) return this.wrapNestedAgent(t);
     if ("agent" in t && t.agent instanceof StreamingAgent) return this.wrapNestedAgent(t.agent, t.description);
-    if ("execute" in t) return this.wrapToolDefinition(t as ToolDefinition<z.ZodType, TContext>);
+    if ("execute" in t) return this.wrapToolDefinition(t as ToolDefinition);
     return t as Tool;
-  }
-
-  get context(): TContext | undefined {
-    return this._context;
   }
 
   get name() {
     return this.agent.name;
   }
 
-  async run(input: string, context?: TContext): Promise<TOutput> {
+  async run(input: string, context: Job): Promise<string> {
     this._context = context;
     this.currentMode = "output";
 
-    const streamResult = await run(this.agent, input, { stream: true });
-    for await (const event of streamResult) this.handleStreamEvent(event);
+    return await withTrace(
+      "TGH",
+      async () => {
+        const streamResult = await run(this.agent, input, { context, stream: true });
+        for await (const event of streamResult) this.handleStreamEvent(event);
 
-    await streamResult.completed;
-    return streamResult.finalOutput as TOutput;
+        await streamResult.completed;
+        return streamResult.finalOutput as string;
+      },
+      { traceId: `trace_${context.id}` },
+    );
   }
 
   asTool(description: string): Tool {
     return this.agent.asTool({
       toolDescription: description,
       onStream: ({ event }) => this.handleStreamEvent(event),
-    });
+    }) as Tool;
   }
 
   private handleStreamEvent(event: RunStreamEvent) {
@@ -178,7 +174,7 @@ export class StreamingAgent<TContext = unknown, TOutput = unknown> {
     }
   }
 
-  private wrapNestedAgent(nestedAgent: StreamingAgent<TContext>, description?: string): Tool {
+  private wrapNestedAgent(nestedAgent: StreamingAgent, description?: string): Tool {
     return tool({
       name: nestedAgent.name,
       description: description ?? `Nested agent: ${nestedAgent.name}`,
@@ -214,6 +210,7 @@ export class StreamingAgent<TContext = unknown, TOutput = unknown> {
         ];
 
         try {
+          if (!this._context) throw new Error("No context available for nested agent");
           return await nestedAgent.run(input, this._context);
         } finally {
           for (const sub of subs) sub.unsubscribe();
@@ -222,7 +219,7 @@ export class StreamingAgent<TContext = unknown, TOutput = unknown> {
     });
   }
 
-  private wrapToolDefinition(def: ToolDefinition<z.ZodType, TContext>): Tool {
+  private wrapToolDefinition(def: ToolDefinition): Tool {
     return tool({
       name: def.name,
       description: def.description,
@@ -241,7 +238,7 @@ export class StreamingAgent<TContext = unknown, TOutput = unknown> {
         callData.output.started.emit();
 
         try {
-          const result = await def.execute(args, this._context as TContext);
+          const result = await def.execute(args, this._context as Job);
           const resultStr = typeof result === "string" ? result : JSON.stringify(result);
           callData.outputValue = resultStr;
           callData.output.delta.emit(resultStr);

@@ -1,4 +1,4 @@
-import { type AppContext, StreamingAgent } from "@agents/streaming-agent";
+import { StreamingAgent } from "@agents/streaming-agent";
 import { models } from "models";
 import { z } from "zod";
 import { createDriveFolderTool } from "./tools/create-drive-folder";
@@ -44,7 +44,7 @@ const DriveOutputSchema = z.object({
   summary: z.string(),
 });
 
-export const driveAgent = new StreamingAgent<AppContext>({
+export const driveAgent = new StreamingAgent({
   name: "drive_agent",
   model: models.thinking,
   instructions: DRIVE_AGENT_PROMPT,

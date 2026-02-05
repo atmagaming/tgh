@@ -13,13 +13,6 @@ Output: {output}
 Good examples: "Added 5+7=12", "Found 3 matching files", "Uploaded report.pdf"
 Bad examples: "Tool completed", "Done", "MathAgent (done)"`;
 
-  private static readonly TOOL_ERROR_PROMPT = `Tool {toolName} failed.
-Input: {input}
-Error: {error}
-Create brief (5-15 words) error summary.
-Examples: "SearchDriveTool (error: API unreachable)", "GenerateImageTool (error: invalid prompt)"
-Output ONLY: "{toolName} (error: reason)"`;
-
   private static readonly ERROR_PROMPT = `Error occurred:
 Name: {errorName}
 Message: {errorMessage}
@@ -47,16 +40,7 @@ Examples:
       input: JSON.stringify(input),
       output: JSON.stringify(output),
     });
-    return (await this.complete(prompt)) || `${toolName} (done)`;
-  }
-
-  async summarizeToolError(toolName: string, input: unknown, error: string): Promise<string> {
-    const prompt = Summarizer.TOOL_ERROR_PROMPT.format({
-      toolName,
-      input: JSON.stringify(input),
-      error,
-    });
-    return (await this.complete(prompt)) ?? `${toolName} (error)`;
+    return (await this.complete(prompt)) ?? `${toolName} (done)`;
   }
 
   async summarizeError(error: Error): Promise<string> {

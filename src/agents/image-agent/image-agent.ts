@@ -1,4 +1,4 @@
-import { type AppContext, StreamingAgent } from "@agents/streaming-agent";
+import { StreamingAgent } from "@agents/streaming-agent";
 import { models } from "models";
 import { z } from "zod";
 import { analyzeImageTool } from "./tools/analyze-image";
@@ -36,9 +36,9 @@ const ImageOutputSchema = z.object({
   summary: z.string(),
 });
 
-export const imageAgent = new StreamingAgent<AppContext>({
+export const imageAgent = new StreamingAgent({
   name: "image_agent",
-  model: models.fast,
+  model: models.mini,
   instructions: IMAGE_AGENT_PROMPT,
   tools: [generateImageTool, analyzeImageTool, generate3DFromImageTool],
   outputType: ImageOutputSchema,

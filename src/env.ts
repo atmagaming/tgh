@@ -18,7 +18,7 @@ const envSchema = z
 
     // Notion Integration
     NOTION_API_KEY: z.string().min(1, "NOTION_API_KEY is required"),
-    NOTION_DATABASE_ID: z.string().min(1, "NOTION_DATABASE_ID is required"),
+    NOTION_MEMORIES_PAGE_ID: z.string().min(1, "NOTION_MEMORIES_PAGE_ID is required"),
 
     // Telegram User Client (GramJS)
     TELEGRAM_API_ID: z.coerce.number(),

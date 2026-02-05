@@ -1,9 +1,11 @@
 import { env } from "env";
 import { logger } from "logger";
+import ora from "ora";
 import { TelegramClient } from "telegram";
 import { Logger } from "telegram/extensions/Logger";
 import { StringSession } from "telegram/sessions";
 import { Api } from "telegram/tl";
+import { ChatMessage, type MessageOrder } from "./chat-message";
 
 const GRAMJS_CONNECTION_RETRIES = 5;
 const GRAMJS_MAX_MESSAGES_LIMIT = 100;
@@ -12,6 +14,8 @@ const GRAMJS_DEFAULT_MESSAGES_LIMIT = 10;
 export class GramJSClient {
   private client: TelegramClient;
   private initialized = false;
+  private chatInfoCache = new Map<number, { title?: string; isForum: boolean }>();
+  private topicsCache = new Map<number, Map<number, string>>();
 
   constructor() {
     const sessionString = env.TELEGRAM_SESSION_LOCAL ?? env.TELEGRAM_SESSION;
@@ -31,8 +35,11 @@ export class GramJSClient {
 
     try {
       await this.client.connect();
-      const me = await this.client.getMe();
-      logger.info({ userId: me.id, username: me.username }, "GramJS client connected");
+      await this.client.getMe();
+
+      // Pre-fetch chat info for default chat
+      await this.prefetchChatInfo(env.ALLOWED_CHAT_ID);
+
       this.initialized = true;
     } catch (error) {
       logger.error({ error: error instanceof Error ? error.message : error }, "Failed to connect GramJS client");
@@ -40,170 +47,137 @@ export class GramJSClient {
     }
   }
 
-  async searchMessages(params: {
-    query: string;
-    limit?: number;
-  }): Promise<Array<{ id: number; text: string; date: Date; senderId?: number }>> {
-    if (!this.initialized) throw new Error("GramJS client not initialized");
-
-    const { query, limit = GRAMJS_DEFAULT_MESSAGES_LIMIT } = params;
-
-    const messages = await this.client.getMessages(env.ALLOWED_CHAT_ID, {
-      search: query,
-      limit: Math.min(limit, GRAMJS_MAX_MESSAGES_LIMIT),
-    });
-
-    return messages.map((msg) => ({
-      id: msg.id,
-      text: msg.text || "",
-      date: new Date(msg.date * 1000),
-      senderId: msg.senderId?.valueOf() as number | undefined,
-    }));
-  }
-
-  async getMessageMentions(messageId: number): Promise<{
-    repliedTo?: number;
-    replies: number[];
-  }> {
-    if (!this.initialized) throw new Error("GramJS client not initialized");
-
-    const [message, replies] = await Promise.all([
-      this.client.getMessages(env.ALLOWED_CHAT_ID, { ids: [messageId] }),
-      this.client.getMessages(env.ALLOWED_CHAT_ID, { replyTo: messageId, limit: GRAMJS_MAX_MESSAGES_LIMIT }),
-    ]);
-
-    return {
-      repliedTo: message[0]?.replyTo?.replyToMsgId,
-      replies: replies.map((msg) => msg.id),
-    };
-  }
-
-  async getMessageHistory(params: {
+  async getMessages({
+    query,
+    chatId = env.ALLOWED_CHAT_ID,
+    limit = GRAMJS_DEFAULT_MESSAGES_LIMIT,
+    offset,
+    order = "newest first",
+    beforeDate,
+    afterDate,
+  }: {
+    query?: string;
+    chatId?: number;
     limit?: number;
     offset?: number;
-  }): Promise<Array<{ id: number; text: string; date: Date; senderId?: number }>> {
+    order?: MessageOrder;
+    beforeDate?: Date;
+    afterDate?: Date;
+  }): Promise<ChatMessage[]> {
     if (!this.initialized) throw new Error("GramJS client not initialized");
 
-    const { limit = GRAMJS_DEFAULT_MESSAGES_LIMIT, offset = 0 } = params;
+    // Get chat info from cache or fetch if not cached
+    let chatInfo = this.chatInfoCache.get(chatId);
+    let topicsMap = this.topicsCache.get(chatId);
 
-    const messages = await this.client.getMessages(env.ALLOWED_CHAT_ID, {
+    if (!chatInfo) {
+      // Not in cache, fetch in parallel
+      const [chat, topics] = await Promise.all([this.client.getEntity(chatId), this.fetchForumTopics(chatId)]);
+
+      const chatTitle = "title" in chat ? (chat.title as string) : undefined;
+      const isForum = "forum" in chat && (chat.forum as boolean);
+      chatInfo = { title: chatTitle, isForum };
+      this.chatInfoCache.set(chatId, chatInfo);
+
+      if (topics) {
+        topicsMap = topics;
+        this.topicsCache.set(chatId, topics);
+      }
+    }
+
+    const apiMessages = await this.client.getMessages(chatId, {
+      search: query,
       limit: Math.min(limit, GRAMJS_MAX_MESSAGES_LIMIT),
       offsetId: offset,
     });
 
-    return messages.map((msg) => ({
-      id: msg.id,
-      text: msg.text || "",
-      date: new Date(msg.date * 1000),
-      senderId: msg.senderId?.valueOf() as number | undefined,
-    }));
-  }
+    let messages = apiMessages.map((msg) => ChatMessage.fromApiMessage(msg, chatInfo.title, topicsMap));
 
-  async getMessageInfo(messageId: number): Promise<{
-    id: number;
-    text: string;
-    date: Date;
-    senderId?: number;
-    voice?: { fileId: string; duration: number; mimeType: string };
-    photo?: { fileId: string };
-    document?: { fileId: string; fileName?: string; mimeType?: string };
-  }> {
-    if (!this.initialized) throw new Error("GramJS client not initialized");
+    // Apply date filtering
+    const beforeTimestamp = beforeDate ? beforeDate.getTime() / 1000 : null;
+    const afterTimestamp = afterDate ? afterDate.getTime() / 1000 : null;
 
-    const messages = await this.client.getMessages(env.ALLOWED_CHAT_ID, { ids: [messageId] });
-    const msg = messages[0];
-    if (!msg) throw new Error(`Message ${messageId} not found`);
-
-    const result: {
-      id: number;
-      text: string;
-      date: Date;
-      senderId?: number;
-      voice?: { fileId: string; duration: number; mimeType: string };
-      photo?: { fileId: string };
-      document?: { fileId: string; fileName?: string; mimeType?: string };
-    } = {
-      id: msg.id,
-      text: msg.text || "",
-      date: new Date(msg.date * 1000),
-      senderId: msg.senderId?.valueOf() as number | undefined,
-    };
-
-    if (msg.media instanceof Api.MessageMediaDocument && msg.media.document instanceof Api.Document) {
-      const doc = msg.media.document;
-      const isVoice = msg.media.voice === true;
-
-      if (isVoice) {
-        result.voice = {
-          fileId: doc.id.toString(),
-          duration:
-            doc.attributes?.find((a): a is Api.DocumentAttributeAudio => a instanceof Api.DocumentAttributeAudio)
-              ?.duration ?? 0,
-          mimeType: doc.mimeType || "audio/ogg",
-        };
-      } else {
-        result.document = {
-          fileId: doc.id.toString(),
-          fileName: doc.attributes?.find(
-            (a): a is Api.DocumentAttributeFilename => a instanceof Api.DocumentAttributeFilename,
-          )?.fileName,
-          mimeType: doc.mimeType,
-        };
-      }
+    if (beforeTimestamp || afterTimestamp) {
+      messages = messages.filter((msg) => {
+        const msgTimestamp = msg.date instanceof Date ? msg.date.getTime() / 1000 : msg.date;
+        if (beforeTimestamp && msgTimestamp >= beforeTimestamp) return false;
+        if (afterTimestamp && msgTimestamp <= afterTimestamp) return false;
+        return true;
+      });
     }
 
-    if (msg.media instanceof Api.MessageMediaPhoto && msg.media.photo instanceof Api.Photo) {
-      result.photo = { fileId: msg.media.photo.id.toString() };
-    }
-
-    return result;
+    return order === "oldest first" ? messages.reverse() : messages;
   }
 
-  async getChatInfo(): Promise<{
+  async getChatInfo(chatId: number = env.ALLOWED_CHAT_ID): Promise<{
     title: string;
-    participantCount?: number;
-    participants?: Array<{ id: number; username?: string; firstName?: string; lastName?: string }>;
-    messageCount?: number;
-    description?: string;
+    participantCount: number;
+    participants: { id: number; username?: string; firstName?: string; lastName?: string }[];
+    messageCount: number;
+    lastMessage: { id: number; date: Date };
+    firstMessage: { id: number; date: Date };
+    topics: { id: string; name: string }[];
   }> {
     if (!this.initialized) throw new Error("GramJS client not initialized");
 
-    const entity = await this.client.getEntity(env.ALLOWED_CHAT_ID);
+    const entity = await this.client.getEntity(chatId);
+    const title = "title" in entity ? (entity.title as string) : "Unknown";
 
-    const result: {
-      title: string;
-      participantCount?: number;
-      participants?: Array<{ id: number; username?: string; firstName?: string; lastName?: string }>;
-      messageCount?: number;
-      description?: string;
-    } = {
-      title: "title" in entity ? (entity.title as string) : "Unknown",
+    // Get last message
+    const lastMessages = await this.client.getMessages(chatId, { limit: 1 });
+    const lastMessage = lastMessages[0];
+    if (!lastMessage) throw new Error("No messages found in chat");
+
+    const messageCount = lastMessage.id;
+
+    // Get first message (use minId = 0 and reverse to get oldest)
+    const firstMessages = await this.client.getMessages(chatId, { limit: 1, minId: 0 });
+    const firstMessage = firstMessages[0];
+    if (!firstMessage) throw new Error("Failed to get first message");
+
+    // Get participants
+    const participantsList = await this.client.getParticipants(chatId, { limit: GRAMJS_MAX_MESSAGES_LIMIT });
+    const participants = participantsList.map((p) => ({
+      id: p.id.valueOf() as number,
+      username: "username" in p ? (p.username as string) : undefined,
+      firstName: "firstName" in p ? (p.firstName as string) : undefined,
+      lastName: "lastName" in p ? (p.lastName as string) : undefined,
+    }));
+
+    const participantCount = "participantsCount" in entity ? (entity.participantsCount as number) : participants.length;
+
+    // Get topics (for forum/supergroup chats)
+    const topics: { id: string; name: string }[] = [];
+    try {
+      if ("forum" in entity && entity.forum) {
+        const result = await this.client.invoke(
+          new Api.channels.GetForumTopics({
+            channel: chatId,
+            limit: 100,
+          }),
+        );
+        if ("topics" in result) {
+          for (const topic of result.topics as { id: number; title?: string }[]) {
+            if (topic.title) topics.push({ id: String(topic.id), name: topic.title });
+          }
+        }
+      }
+    } catch (error) {
+      logger.debug(
+        { error: error instanceof Error ? error.message : error },
+        "Failed to get topics (chat may not be a forum)",
+      );
+    }
+
+    return {
+      title,
+      participantCount,
+      participants,
+      messageCount,
+      lastMessage: { id: lastMessage.id, date: new Date(lastMessage.date * 1000) },
+      firstMessage: { id: firstMessage.id, date: new Date(firstMessage.date * 1000) },
+      topics,
     };
-
-    if ("participantsCount" in entity) result.participantCount = entity.participantsCount as number;
-
-    if ("about" in entity) result.description = entity.about as string;
-
-    try {
-      const messages = await this.client.getMessages(env.ALLOWED_CHAT_ID, { limit: 1 });
-      if (messages.length > 0 && messages[0]) result.messageCount = messages[0].id;
-    } catch (error) {
-      logger.warn({ error: error instanceof Error ? error.message : error }, "Failed to get message count");
-    }
-
-    try {
-      const participants = await this.client.getParticipants(env.ALLOWED_CHAT_ID, { limit: GRAMJS_MAX_MESSAGES_LIMIT });
-      result.participants = participants.map((p) => ({
-        id: p.id.valueOf() as number,
-        username: "username" in p ? (p.username as string) : undefined,
-        firstName: "firstName" in p ? (p.firstName as string) : undefined,
-        lastName: "lastName" in p ? (p.lastName as string) : undefined,
-      }));
-    } catch (error) {
-      logger.warn({ error: error instanceof Error ? error.message : error }, "Failed to get participants");
-    }
-
-    return result;
   }
 
   async disconnect(): Promise<void> {
@@ -212,6 +186,49 @@ export class GramJSClient {
       this.initialized = false;
       logger.info("GramJS client disconnected");
     }
+  }
+
+  private async prefetchChatInfo(chatId: number): Promise<void> {
+    const spinner = ora("Fetching chat info...").start();
+    try {
+      const [chat, topics] = await Promise.all([this.client.getEntity(chatId), this.fetchForumTopics(chatId)]);
+
+      const chatTitle = "title" in chat ? (chat.title as string) : undefined;
+      const isForum = "forum" in chat && (chat.forum as boolean);
+      this.chatInfoCache.set(chatId, { title: chatTitle, isForum });
+
+      if (topics) this.topicsCache.set(chatId, topics);
+
+      spinner.succeed(`Chat info pre-fetched: ${chatTitle}${isForum ? " (forum)" : ""}, ${topics?.size ?? 0} topics`);
+    } catch (error) {
+      spinner.fail("Failed to pre-fetch chat info");
+      logger.warn({ error: error instanceof Error ? error.message : error, chatId }, "Failed to pre-fetch chat info");
+    }
+  }
+
+  private async fetchForumTopics(chatId: number): Promise<Map<number, string> | undefined> {
+    try {
+      const chat = await this.client.getEntity(chatId);
+      if (!("forum" in chat) || !chat.forum) return undefined;
+
+      const result = await this.client.invoke(
+        new Api.channels.GetForumTopics({
+          channel: chatId,
+          limit: 100,
+        }),
+      );
+
+      if ("topics" in result && Array.isArray(result.topics)) {
+        const topicsMap = new Map<number, string>();
+        for (const topic of result.topics as { id: number; title?: string }[]) {
+          if (topic.title) topicsMap.set(topic.id, topic.title);
+        }
+        return topicsMap;
+      }
+    } catch (error) {
+      logger.debug({ error: error instanceof Error ? error.message : error }, "Failed to fetch forum topics");
+    }
+    return undefined;
   }
 }
 
