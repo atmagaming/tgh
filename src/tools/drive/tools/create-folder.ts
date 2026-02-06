@@ -2,8 +2,8 @@ import { google } from "services/google-api";
 import { defineTool } from "streaming-agent";
 import { z } from "zod";
 
-export const createDriveFolderTool = defineTool(
-  "CreateDriveFolder",
+export const createFolderTool = defineTool(
+  "CreateFolder",
   "Create a new folder in Google Drive inside a specified parent folder.",
   z.object({
     name: z.string().describe("The name of the folder to create"),

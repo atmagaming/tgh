@@ -2,8 +2,8 @@ import { google } from "services/google-api";
 import { defineTool } from "streaming-agent";
 import { z } from "zod";
 
-export const deleteDriveFileTool = defineTool(
-  "DeleteDriveFile",
+export const deleteFileTool = defineTool(
+  "DeleteFile",
   "Move a file or folder to trash in Google Drive. Can be recovered from trash.",
   z.object({
     file_id: z.string().describe("The ID of the file or folder to delete"),

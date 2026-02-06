@@ -4,13 +4,13 @@ import { z } from "zod";
 
 export const exportDocPdfTool = defineTool(
   "ExportDocPdf",
-  "Export a Google Doc as a PDF file. Returns the PDF as a file buffer that will be automatically sent to the user.",
+  "Export a Google Doc as a PDF file. Returns a path to the downloaded file",
   z.object({
-    document_id: z.string().describe("The ID of the document to export"),
-    filename: z.string().nullable().describe("Filename for the PDF, or null (defaults to document name)"),
+    documentId: z.string().describe("ID of the document to export"),
+    filename: z.string().nullable().describe("Filename, or null (defaults to document name)"),
   }),
-  async ({ document_id, filename }) => {
-    const buffer = await google.docs.exportPdf(document_id);
+  async ({ documentId, filename }) => {
+    const buffer = await google.docs.exportPdf(documentId);
 
     return {
       files: [

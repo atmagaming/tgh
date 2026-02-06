@@ -7,8 +7,8 @@ import { defineTool } from "streaming-agent";
 import { detectMimeType } from "utils/files";
 import { z } from "zod";
 
-export const uploadDriveFileTool = defineTool(
-  "UploadDriveFile",
+export const uploadFileTool = defineTool(
+  "UploadFile",
   "Upload a file to Google Drive from Telegram message, local path, URL, or base64 data.",
   z.object({
     message_id: z.number().nullable().describe("Telegram message ID containing the file"),

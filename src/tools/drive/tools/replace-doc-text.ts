@@ -4,9 +4,9 @@ import { z } from "zod";
 
 export const replaceDocTextTool = defineTool(
   "ReplaceDocText",
-  "Replace text placeholders in a Google Doc. All replacements are done in a single batch update. Use this to personalize documents with user data.",
+  "Replace text placeholders in a Google Doc. All occurrences are replaced in a single batch update",
   z.object({
-    document_id: z.string().describe("The ID of the document to update"),
+    documentId: z.string().describe("The ID of the document to update"),
     replacements: z
       .array(
         z.object({
@@ -16,12 +16,9 @@ export const replaceDocTextTool = defineTool(
       )
       .describe("List of placeholder→value replacements to apply in a single batch."),
   }),
-  async ({ document_id, replacements }, _context) => {
+  async ({ documentId, replacements }, _context) => {
     const record = Object.fromEntries(replacements.map((r) => [r.placeholder, r.value]));
-    await google.docs.replaceText(document_id, record);
-    return {
-      document_id,
-      replacements_made: replacements.length,
-    };
+    await google.docs.replaceText(documentId, record);
+    return documentId;
   },
 );

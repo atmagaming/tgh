@@ -1,16 +1,16 @@
 import { models } from "models";
 import { StreamingAgent } from "streaming-agent";
 import { copyFile } from "./tools/copy";
-import { createDriveFolderTool } from "./tools/create-folder";
-import { deleteDriveFileTool } from "./tools/delete-file";
-import { downloadDriveFileTool } from "./tools/download-file";
+import { createFolderTool } from "./tools/create-folder";
+import { deleteFileTool } from "./tools/delete";
+import { downloadFileTool } from "./tools/download";
 import { exportDocPdfTool } from "./tools/export-doc-pdf";
-import { listDriveFilesTool } from "./tools/list-files";
-import { renameDriveFileTool } from "./tools/rename-file";
+import { listFolderTool } from "./tools/list-folder";
+import { renameTool } from "./tools/rename";
 import { replaceDocTextTool } from "./tools/replace-doc-text";
-import { searchDriveTool } from "./tools/search";
-import { treeDriveTool } from "./tools/tree";
-import { uploadDriveFileTool } from "./tools/upload-file";
+import { searchTool } from "./tools/search";
+import { treeTool } from "./tools/tree";
+import { uploadFileTool } from "./tools/upload";
 
 const DRIVE_AGENT_PROMPT = `You work with files on Google Drive, including Google Docs.
 
@@ -30,14 +30,14 @@ export const driveAgent = new StreamingAgent({
   modelSettings: { reasoning: { effort: "low" } },
   instructions: DRIVE_AGENT_PROMPT,
   tools: [
-    treeDriveTool,
-    searchDriveTool,
-    listDriveFilesTool,
-    downloadDriveFileTool,
-    uploadDriveFileTool,
-    createDriveFolderTool,
-    renameDriveFileTool,
-    deleteDriveFileTool,
+    treeTool,
+    searchTool,
+    listFolderTool,
+    downloadFileTool,
+    uploadFileTool,
+    createFolderTool,
+    renameTool,
+    deleteFileTool,
     copyFile,
     replaceDocTextTool,
     exportDocPdfTool,

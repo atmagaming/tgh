@@ -2,8 +2,8 @@ import { google } from "services/google-api";
 import { defineTool } from "streaming-agent";
 import { z } from "zod";
 
-export const searchDriveTool = defineTool(
-  "SearchDrive",
+export const searchTool = defineTool(
+  "Search",
   "Search Google Drive files by glob pattern (e.g. *.pdf, report*, *budget*). Without wildcards, matches exact name.",
   z.object({
     pattern: z.string().describe("Glob pattern to match file names (e.g. *.pdf, report*, *budget*)"),

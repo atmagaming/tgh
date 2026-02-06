@@ -4,7 +4,7 @@
   "type": "module",
   "private": true,
   "config": {
-    "version": "0.1.51"
+    "version": "0.1.52"
   },
   "packageManager": "bun@1.3.5",
   "scripts": {
