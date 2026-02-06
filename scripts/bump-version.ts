@@ -1,11 +1,12 @@
 #!/usr/bin/env bun
 
-const versionFile = Bun.file("./version.json");
-const versionData = (await versionFile.json()) as { version: string };
+const packageFile = Bun.file("./package.json");
+const packageData = (await packageFile.json()) as { config: { version: string } };
 
-const [major, minor, patch] = versionData.version.split(".").map(Number);
+const [major, minor, patch] = packageData.config.version.split(".").map(Number);
 const newVersion = `${major}.${minor}.${(patch || 0) + 1}`;
 
-await Bun.write("./version.json", JSON.stringify({ version: newVersion }, null, 2));
+packageData.config.version = newVersion;
+await Bun.write("./package.json", `${JSON.stringify(packageData, null, 2)}\n`);
 
-console.log(`Version bumped: ${versionData.version} → ${newVersion}`);
+console.log(`Version bumped: ${packageData.config.version} → ${newVersion}`);
