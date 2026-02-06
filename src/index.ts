@@ -23,8 +23,8 @@ const app = new App();
 // Notify about new version in production
 if (env.TELEGRAM_SESSION_LOCAL === undefined) {
   try {
-    const versionFile = await Bun.file("./version.json").json();
-    const version = versionFile.version as string;
+    const packageJson = await Bun.file("./package.json").json();
+    const version = packageJson.config?.version as string;
     await app.bot.api.sendMessage(env.ALLOWED_CHAT_ID, `🚀 Bot updated to version ${version}`);
     logger.info({ version }, "Version notification sent");
   } catch (error) {
