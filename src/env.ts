@@ -19,6 +19,11 @@ const envSchema = z
     // Notion Integration
     NOTION_API_KEY: z.string().min(1, "NOTION_API_KEY is required"),
     NOTION_MEMORIES_PAGE_ID: z.string().min(1, "NOTION_MEMORIES_PAGE_ID is required"),
+    NOTION_PEOPLE_DB_ID: z.string().min(1, "NOTION_PEOPLE_DB_ID is required"),
+    NOTION_ROLES_DB_ID: z.string().min(1, "NOTION_ROLES_DB_ID is required"),
+    NOTION_SENSITIVE_DATA_DB_ID: z.string().min(1, "NOTION_SENSITIVE_DATA_DB_ID is required"),
+    NOTION_TASKS_DB_ID: z.string().min(1, "NOTION_TASKS_DB_ID is required"),
+    NOTION_HYPOCRISY_DB_ID: z.string().min(1, "NOTION_HYPOCRISY_DB_ID is required"),
 
     // Telegram User Client (GramJS)
     TELEGRAM_API_ID: z.coerce.number(),
@@ -26,9 +31,16 @@ const envSchema = z
     TELEGRAM_SESSION: z.string().min(1, "TELEGRAM_SESSION is required"),
     TELEGRAM_SESSION_LOCAL: z.string().optional(),
     TELEGRAM_PHONE_NUMBER: z.string().min(1, "TELEGRAM_PHONE_NUMBER is required"),
+    TELEGRAM_TEAM_GROUP_ID: z.coerce.number(),
+    TELEGRAM_TEAM_INVITE_LINK: z.string().min(1, "TELEGRAM_TEAM_INVITE_LINK is required"),
 
     // Google Drive
     GOOGLE_DRIVE_CREDENTIALS: z.string().min(1, "GOOGLE_DRIVE_CREDENTIALS is required"),
+    GOOGLE_DRIVE_NDA_TEMPLATE_ID: z.string().min(1, "GOOGLE_DRIVE_NDA_TEMPLATE_ID is required"),
+    GOOGLE_DRIVE_AGREEMENTS_FOLDER_ID: z.string().min(1, "GOOGLE_DRIVE_AGREEMENTS_FOLDER_ID is required"),
+
+    // DigiSigner
+    DIGISIGNER_API_KEY: z.string().min(1, "DIGISIGNER_API_KEY is required"),
 
     VERBOSE: z.number().default(0),
   })

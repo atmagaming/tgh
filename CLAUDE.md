@@ -16,7 +16,10 @@ bun run format       # Format with Biome
 ## Code Style
 
 - Single-statement blocks: Remove braces, keep on one line (e.g., `if (condition) throw error;`)
-- Remove obvious comments explaining what code does (code should be self-explanatory)
+- **Write self-explanatory code, avoid obvious comments** - code should clearly express what it does through good naming and structure
+  - ❌ Bad: `// Get user by ID` then `getUserById(id)`
+  - ❌ Bad: `// Loop through items` then `for (const item of items)`
+  - ✅ Good: Add comments only when explaining WHY, not WHAT (business logic, non-obvious algorithms, workarounds)
 - Keep minimal spacing, avoid excessive blank lines
 - Compact object returns when simple (e.g., `return { inlineData: { mimeType, data } };`)
 - **Never use `setXXX()`/`getXXX()` methods** - use TypeScript getters/setters instead

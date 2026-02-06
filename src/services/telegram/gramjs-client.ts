@@ -180,6 +180,33 @@ export class GramJSClient {
     };
   }
 
+  async addUserToGroup(chatId: number, username: string): Promise<{ success: boolean; error?: string }> {
+    if (!this.initialized) throw new Error("GramJS client not initialized");
+
+    try {
+      // Resolve username to user entity
+      const user = await this.client.getEntity(username);
+
+      // Get the chat entity
+      const chat = await this.client.getEntity(chatId);
+
+      // Add user to the channel/supergroup
+      await this.client.invoke(
+        new Api.channels.InviteToChannel({
+          channel: chat,
+          users: [user],
+        }),
+      );
+
+      logger.info({ username, chatId }, "User added to group successfully");
+      return { success: true };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.warn({ username, chatId, error: errorMessage }, "Failed to add user to group");
+      return { success: false, error: errorMessage };
+    }
+  }
+
   async disconnect(): Promise<void> {
     if (this.initialized) {
       await this.client.disconnect();

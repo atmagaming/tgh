@@ -17,8 +17,10 @@
     // Path aliases
     "baseUrl": "./src",
     "paths": {
-      "@agents": ["agents/index"],
-      "@agents/*": ["agents/*"],
+      "@agentic": ["agentic/index"],
+      "@agentic/*": ["agentic/*"],
+      "@tools": ["tools/index"],
+      "@tools/*": ["tools/*"],
       "@components": ["app-view/components/index"],
       "@components/*": ["app-view/components/*"],
       "@hooks": ["app-view/hooks/index"],

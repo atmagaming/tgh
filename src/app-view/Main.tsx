@@ -1,5 +1,5 @@
-import type { AgentCallData } from "@agents";
-import { masterAgent } from "@agents/master-agent";
+import type { AgentCallData } from "@agentic";
+import { masterAgent } from "@agentic";
 import { JobStatus, Tool } from "@components";
 import { random } from "@elumixor/frontils";
 import { useEffectAsync, usePromise } from "@hooks";

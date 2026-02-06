@@ -1,4 +1,4 @@
-import type { CallData } from "@agents";
+import type { CallData } from "@agentic";
 import { useArray, useEffectAsync } from "@hooks";
 import { useEffect, useState } from "react";
 import { summarizer } from "services/summarizer";

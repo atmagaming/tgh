@@ -1,4 +1,4 @@
-import type { CallData } from "@agents";
+import type { CallData } from "@agentic";
 import { Line } from "./Line";
 import { Tool } from "./Tool";
 
