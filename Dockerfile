@@ -7,4 +7,4 @@ RUN bun install --frozen-lockfile --production
 
 COPY . .
 
-CMD ["bun", "run", "src/index.ts"]
+CMD ["bun", "run", "src/index.tsx"]
