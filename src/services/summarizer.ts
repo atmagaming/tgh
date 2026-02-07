@@ -14,7 +14,8 @@ async function complete(prompt: string): Promise<string> {
 export async function summarizeTool(toolName: string, input: unknown, output: unknown): Promise<string> {
   const result = await complete(`
 Summarize what this tool call accomplished in under 10 words.
-Focus on the specific result, do not include tool name. Be specific about values/data.
+Focus on the specific result, do not include tool name. Be specific about values/data, but omit long strings/paths/ids.
+This should be human-readable as a priority.
 In case of error, briefly say that tool has failed with error. Summarize the error if possible.
 
 Tool: ${toolName}

@@ -17,7 +17,7 @@ export const downloadFileTool = defineTool(
 
     const fileBuffer = await google.drive.download(fileId);
     const extension = getExtension(fileName, mimeType);
-    const tempPath = await saveTempFile(fileBuffer, extension);
+    const tempPath = await saveTempFile(fileBuffer, extension, fileName);
 
     return tempPath;
   },

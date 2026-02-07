@@ -11,12 +11,14 @@ export function JobStatus() {
     ignoreUrl(link);
   }, [link]);
 
-  const duration = job.thinkingDuration?.toFixed(2);
-  const status = job.state === "done" ? "✅" : job.state === "summarizing" ? `📝 ${duration}s` : "⚡";
+  const status = job.state === "done" ? "✅" : job.state === "summarizing" ? `📝` : "⚡";
 
   return (
     <p>
-      <a href={link}>{status}</a>
+      {status}
+      <i>
+        <a href={link}>(trace)</a>
+      </i>
     </p>
   );
 }

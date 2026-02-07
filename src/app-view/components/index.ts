@@ -1,3 +1,4 @@
+export * from "./FileAttachments";
 export * from "./JobStatus";
 export * from "./Line";
 export * from "./Output";

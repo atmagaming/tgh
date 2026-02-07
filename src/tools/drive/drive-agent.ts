@@ -3,8 +3,8 @@ import { StreamingAgent } from "streaming-agent";
 import { copyFile } from "./tools/copy";
 import { createFolderTool } from "./tools/create-folder";
 import { deleteFileTool } from "./tools/delete";
+import { docToPDFTool } from "./tools/doc-to-pdf";
 import { downloadFileTool } from "./tools/download";
-import { exportDocPdfTool } from "./tools/export-doc-pdf";
 import { listFolderTool } from "./tools/list-folder";
 import { renameTool } from "./tools/rename";
 import { replaceDocTextTool } from "./tools/replace-doc-text";
@@ -40,6 +40,6 @@ export const driveAgent = new StreamingAgent({
     deleteFileTool,
     copyFile,
     replaceDocTextTool,
-    exportDocPdfTool,
+    docToPDFTool,
   ],
 });

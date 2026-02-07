@@ -16,6 +16,7 @@ export function JobProvider({ job, children }: { job: Job; children: ReactNode }
 
   const value: JobContextValue = {
     ...job,
+    addFile: job.addFile.bind(job),
     get currentChatId() {
       return job.currentChatId;
     },

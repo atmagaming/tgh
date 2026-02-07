@@ -3,6 +3,7 @@ import { models } from "models";
 import { memories } from "services/memories";
 import { StreamingAgent } from "streaming-agent";
 import { getMessagesTool } from "tools/core/get-messages";
+import { sendFileTool } from "tools/core/send-file";
 import { updateMemoriesTool } from "tools/core/update-memories";
 import { driveAgent } from "tools/drive";
 import { notionAgent } from "tools/notion";
@@ -52,6 +53,7 @@ You need not rely on old messages to provide constant results. The system might 
   tools: [
     getChatInfoTool,
     getMessagesTool,
+    sendFileTool,
     updateMemoriesTool,
     // {
     //   agent: notionAgent,

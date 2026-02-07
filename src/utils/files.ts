@@ -8,8 +8,12 @@ const TEMP_PREFIX = "tgh-";
 /**
  * Save buffer to a temp file, return the file path
  */
-export async function saveTempFile(data: Buffer, extension: string): Promise<string> {
-  const filename = `${TEMP_PREFIX}${randomUUID()}.${extension.replace(/^\./, "")}`;
+export async function saveTempFile(
+  data: Buffer,
+  extension: string,
+  name = `${TEMP_PREFIX}${randomUUID()}`,
+): Promise<string> {
+  const filename = `${name}.${extension.replace(/^\./, "")}`;
   const filePath = path.join(os.tmpdir(), filename);
   await fs.writeFile(filePath, data);
   return filePath;

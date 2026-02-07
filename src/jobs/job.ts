@@ -1,12 +1,15 @@
+import { EventEmitter } from "@elumixor/event-emitter";
 import { random } from "@elumixor/frontils";
 import { env } from "env";
 import type { Context } from "grammy";
 
 export type ChatType = "private" | "group";
 export type JobState = "running" | "summarizing" | "done";
+export type FileAttachment = { buffer: Buffer; filename: string; type: "file" | "preview" };
 
 export class Job {
   readonly id = random.string(32).toLowerCase();
+  readonly fileAdded = new EventEmitter<FileAttachment>();
 
   /** GramJS chat ID for group chat */
   readonly groupChatId: number = env.GROUP_CHAT_ID;
@@ -23,6 +26,10 @@ export class Job {
     readonly botUsername: string,
     readonly botName: string,
   ) {}
+
+  addFile(buffer: Buffer, filename: string, type: "file" | "preview") {
+    this.fileAdded.emit({ buffer, filename, type });
+  }
 
   /** Returns the appropriate chat ID for GramJS based on chatType */
   get currentChatId() {

@@ -1,4 +1,4 @@
-import { JobStatus, Tool } from "@components";
+import { FileAttachments, JobStatus, Tool } from "@components";
 import { random } from "@elumixor/frontils";
 import { useEffectAsync, usePromise } from "@hooks";
 import { useJob } from "@providers/JobProvider";
@@ -62,6 +62,7 @@ export function Main() {
   return (
     <LinkPreviewProvider>
       <Message repliesTo={job.messageId}>
+        <FileAttachments />
         <Tool data={agentData} root onSummarized={onSummarized} />
         <br />
         <JobStatus />
