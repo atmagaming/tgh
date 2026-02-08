@@ -16,9 +16,5 @@ export const replaceDocTextTool = defineTool(
       )
       .describe("List of placeholder→value replacements to apply in a single batch."),
   }),
-  async ({ documentId, replacements }, _context) => {
-    const record = Object.fromEntries(replacements.map((r) => [r.placeholder, r.value]));
-    await google.docs.replaceText(documentId, record);
-    return documentId;
-  },
+  ({ documentId, replacements }) => google.docs.replaceText(documentId, replacements),
 );

@@ -15,7 +15,6 @@ export class DriveApi {
 
   constructor(auth: OAuth2Client) {
     this.client = google.drive({ version: "v3", auth });
-    logger.info("Drive API initialized");
   }
 
   rootFolder(): Promise<DriveFile[]> {

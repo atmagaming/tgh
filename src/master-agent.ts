@@ -1,5 +1,5 @@
 import { coreTools } from "@tools/core";
-import { sendForSignTool } from "@tools/send-for-sign";
+import { cancelSignTool, sendForSignTool } from "@tools/signing";
 import { models } from "models";
 import { memories } from "services/memories";
 import { StreamingAgent } from "streaming-agent";
@@ -61,6 +61,7 @@ You need not rely on old messages to provide constant results. The system might 
         "Manage Google Drive and Google Docs. Accepts a general instruction in a natural language with required ids/links/names.",
     },
     sendForSignTool,
+    cancelSignTool,
     // {
     //   agent: onboardingAgent,
     //   description:

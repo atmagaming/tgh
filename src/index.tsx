@@ -5,6 +5,7 @@ import { env } from "env";
 import { Bot, webhookCallback } from "grammy";
 import { TelegramRenderer } from "io/output";
 import { Job, JobQueue } from "jobs";
+import { Listr } from "listr2";
 import { logger } from "logger";
 import { memories } from "services/memories";
 import { gramjsClient } from "services/telegram";
@@ -13,23 +14,51 @@ import { isBotMentioned } from "utils";
 
 const bot = new Bot(env.TELEGRAM_BOT_TOKEN);
 const { id: botChatId, username: botUsername = "", first_name: botName } = await bot.api.getMe();
-logger.info({ username: botUsername, firstName: botName }, "Bot info set");
 
-await Promise.all([
-  // Initialize GramJS client
-  gramjsClient.connect(),
-  // Initialize memories (sync with Notion once on startup)
-  await memories.initialize(),
-  // Start Notion MCP server
-  notionMcpServer.connect(),
-]);
+await new Listr(
+  [
+    { title: "Initialize Google APIs", task: () => import("services/google-api") },
+    {
+      title: "Connect to Telegram",
+      task: (_, task) =>
+        task.newListr(
+          [
+            {
+              title: "Connect GramJS",
+              task: async (_, sub) => {
+                sub.title = await gramjsClient.connect();
+              },
+            },
+            {
+              title: "Pre-fetch chat info",
+              task: async (_, sub) => {
+                sub.title = await gramjsClient.prefetchDefaultChat();
+              },
+            },
+          ],
+          { concurrent: false },
+        ),
+    },
+    {
+      title: "Sync memories",
+      task: async (_, task) => {
+        task.title = await memories.sync();
+      },
+    },
+    {
+      title: "Start Notion MCP server",
+      task: () => notionMcpServer.connect(),
+    },
+  ],
+  { concurrent: true, exitOnError: false },
+).run();
 
-// Notify about new version in production
+// Notify about new version in production (send to private chat)
 if (env.TELEGRAM_SESSION_LOCAL === undefined) {
   try {
     const packageJson = await Bun.file("./package.json").json();
     const version = packageJson.config?.version as string;
-    await bot.api.sendMessage(env.GROUP_CHAT_ID, `🚀 Bot updated to version ${version}`);
+    await bot.api.sendMessage(env.ALLOWED_USER_ID, `Bot updated to version ${version}`);
     logger.info({ version }, "Version notification sent");
   } catch (error) {
     logger.warn(

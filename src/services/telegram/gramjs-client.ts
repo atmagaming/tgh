@@ -1,6 +1,5 @@
 import { env } from "env";
 import { logger } from "logger";
-import ora from "ora";
 import { TelegramClient } from "telegram";
 import { Logger } from "telegram/extensions/Logger";
 import { StringSession } from "telegram/sessions";
@@ -30,21 +29,22 @@ export class GramJSClient {
     });
   }
 
-  async connect(): Promise<void> {
-    if (this.initialized) return;
+  async connect(): Promise<string> {
+    if (this.initialized) return "Already connected";
 
     try {
       await this.client.connect();
       await this.client.getMe();
-
-      // Pre-fetch chat info for default chat
-      await this.prefetchChatInfo(env.GROUP_CHAT_ID);
-
       this.initialized = true;
+      return "GramJS connected";
     } catch (error) {
       logger.error({ error: error instanceof Error ? error.message : error }, "Failed to connect GramJS client");
       throw new Error("GramJS session invalid or expired. Run 'bun run login' to regenerate.");
     }
+  }
+
+  prefetchDefaultChat(): Promise<string> {
+    return this.prefetchChatInfo(env.GROUP_CHAT_ID);
   }
 
   async getMessages({
@@ -71,17 +71,21 @@ export class GramJSClient {
     let topicsMap = this.topicsCache.get(chatId);
 
     if (!chatInfo) {
-      // Not in cache, fetch in parallel
-      const [chat, topics] = await Promise.all([this.client.getEntity(chatId), this.fetchForumTopics(chatId)]);
+      try {
+        const [chat, topics] = await Promise.all([this.client.getEntity(chatId), this.fetchForumTopics(chatId)]);
 
-      const chatTitle = "title" in chat ? (chat.title as string) : undefined;
-      const isForum = "forum" in chat && (chat.forum as boolean);
-      chatInfo = { title: chatTitle, isForum };
-      this.chatInfoCache.set(chatId, chatInfo);
+        const chatTitle = "title" in chat ? (chat.title as string) : undefined;
+        const isForum = "forum" in chat && (chat.forum as boolean);
+        chatInfo = { title: chatTitle, isForum };
+        this.chatInfoCache.set(chatId, chatInfo);
 
-      if (topics) {
-        topicsMap = topics;
-        this.topicsCache.set(chatId, topics);
+        if (topics) {
+          topicsMap = topics;
+          this.topicsCache.set(chatId, topics);
+        }
+      } catch (error) {
+        logger.warn({ chatId, error: error instanceof Error ? error.message : error }, "Failed to resolve chat entity");
+        chatInfo = { title: undefined, isForum: false };
       }
     }
 
@@ -215,22 +219,16 @@ export class GramJSClient {
     }
   }
 
-  private async prefetchChatInfo(chatId: number): Promise<void> {
-    const spinner = ora("Fetching chat info...").start();
-    try {
-      const [chat, topics] = await Promise.all([this.client.getEntity(chatId), this.fetchForumTopics(chatId)]);
+  private async prefetchChatInfo(chatId: number): Promise<string> {
+    const [chat, topics] = await Promise.all([this.client.getEntity(chatId), this.fetchForumTopics(chatId)]);
 
-      const chatTitle = "title" in chat ? (chat.title as string) : undefined;
-      const isForum = "forum" in chat && (chat.forum as boolean);
-      this.chatInfoCache.set(chatId, { title: chatTitle, isForum });
+    const chatTitle = "title" in chat ? (chat.title as string) : undefined;
+    const isForum = "forum" in chat && (chat.forum as boolean);
+    this.chatInfoCache.set(chatId, { title: chatTitle, isForum });
 
-      if (topics) this.topicsCache.set(chatId, topics);
+    if (topics) this.topicsCache.set(chatId, topics);
 
-      spinner.succeed(`Chat info pre-fetched: ${chatTitle}${isForum ? " (forum)" : ""}, ${topics?.size ?? 0} topics`);
-    } catch (error) {
-      spinner.fail("Failed to pre-fetch chat info");
-      logger.warn({ error: error instanceof Error ? error.message : error, chatId }, "Failed to pre-fetch chat info");
-    }
+    return `Chat info: ${chatTitle}${isForum ? " (forum)" : ""}, ${topics?.size ?? 0} topics`;
   }
 
   private async fetchForumTopics(chatId: number): Promise<Map<number, string> | undefined> {

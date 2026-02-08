@@ -1,6 +1,5 @@
 import { env } from "env";
 import { google as googleapis } from "googleapis";
-import { logger } from "logger";
 import { DocsApi } from "./docs-api";
 import { DriveApi } from "./drive-api";
 
@@ -14,7 +13,6 @@ export class GoogleApi {
 
     this.drive = new DriveApi(auth);
     this.docs = new DocsApi(auth);
-    logger.info("Google API initialized");
   }
 }
 

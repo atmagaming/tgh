@@ -38,7 +38,7 @@ export async function sendForSign(
     }),
   );
 
-  const documentId = await digiSigner.upload(fileBuffer, filePath.split("/").last);
+  const documentId = await digiSigner.upload(fileBuffer, filePath.split("/").pop()!);
 
   const { signature_request_id } = await digiSigner.sendSignatureRequest(documentId, {
     signers: signersWithBoxes,
@@ -56,4 +56,8 @@ export async function sendForSign(
   if (!signersLinks) throw new Error("No signers found in the signature request status");
 
   return signersLinks;
+}
+
+export function cancelSign(documentId: string) {
+  return digiSigner.delete(documentId);
 }

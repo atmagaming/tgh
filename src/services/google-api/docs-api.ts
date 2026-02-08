@@ -10,17 +10,16 @@ export class DocsApi {
   constructor(auth: OAuth2Client) {
     this.docsClient = google.docs({ version: "v1", auth });
     this.driveClient = google.drive({ version: "v3", auth });
-    logger.info("Docs API initialized");
   }
 
-  async replaceText(documentId: string, replacements: Record<string, string>): Promise<void> {
-    const requests: docs_v1.Schema$Request[] = Object.entries(replacements).map(([placeholder, replacement]) => ({
+  async replaceText(documentId: string, replacements: { placeholder: string; value: string }[]): Promise<void> {
+    const requests: docs_v1.Schema$Request[] = replacements.map(({ placeholder, value }) => ({
       replaceAllText: {
         containsText: {
           text: placeholder,
           matchCase: true,
         },
-        replaceText: replacement,
+        replaceText: value,
       },
     }));
 

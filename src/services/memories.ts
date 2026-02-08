@@ -2,7 +2,6 @@ import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "no
 import type { BlockObjectRequest, GetPageResponse } from "@notionhq/client/build/src/api-endpoints";
 import { env } from "env";
 import { logger } from "logger";
-import ora from "ora";
 import { notionClient } from "services/notion";
 
 const MEMORIES_FILE = "./cache/memories.md";
@@ -35,68 +34,45 @@ class Memories {
     this.queueSync(content);
   }
 
-  /** Initialize memories on app startup - sync with Notion once */
-  async initialize(): Promise<void> {
-    try {
-      await this.sync();
-    } catch (error) {
-      logger.error({ error: error instanceof Error ? error.message : error }, "Failed to initialize memories");
+  /** Sync memories between local file and Notion (bidirectional). Returns status message. */
+  async sync(): Promise<string> {
+    const localTime = this.getLocalFileTime();
+    const notionTime = await this.getNotionPageTime();
+
+    if (!localTime && !notionTime) {
+      mkdirSync("./cache", { recursive: true });
+      writeFileSync(MEMORIES_FILE, "", "utf-8");
+      return "No memories found, created empty file";
     }
-  }
 
-  /** Sync memories between local file and Notion (bidirectional) */
-  private async sync(): Promise<void> {
-    const spinner = ora("Syncing memories...").start();
-
-    try {
-      const localTime = this.getLocalFileTime();
-      const notionTime = await this.getNotionPageTime();
-
-      if (!localTime && !notionTime) {
-        // Neither exists, create empty local file
-        mkdirSync("./cache", { recursive: true });
-        writeFileSync(MEMORIES_FILE, "", "utf-8");
-        spinner.info("No memories found, created empty file");
-        return;
-      }
-
-      if (!localTime) {
-        // Only Notion exists, pull from Notion
-        const content = await this.readFromNotion();
-        mkdirSync("./cache", { recursive: true });
-        writeFileSync(MEMORIES_FILE, content, "utf-8");
-        this.cache = content;
-        spinner.succeed("Memories synced: Notion → local");
-        return;
-      }
-
-      if (!notionTime) {
-        // Only local exists, push to Notion
-        const content = readFileSync(MEMORIES_FILE, "utf-8");
-        await this.syncToNotion(content);
-        spinner.succeed("Memories synced: local → Notion");
-        return;
-      }
-
-      // Both exist, compare times
-      if (notionTime > localTime) {
-        // Notion is newer, pull from Notion
-        const content = await this.readFromNotion();
-        writeFileSync(MEMORIES_FILE, content, "utf-8");
-        this.cache = content;
-        spinner.succeed("Memories synced: Notion → local (Notion was newer)");
-      } else if (localTime > notionTime) {
-        // Local is newer, push to Notion
-        const content = readFileSync(MEMORIES_FILE, "utf-8");
-        await this.syncToNotion(content);
-        spinner.succeed("Memories synced: local → Notion (local was newer)");
-      } else {
-        spinner.info("Memories already in sync");
-      }
-    } catch (error) {
-      spinner.fail("Failed to sync memories");
-      throw error;
+    if (!localTime) {
+      const content = await this.readFromNotion();
+      mkdirSync("./cache", { recursive: true });
+      writeFileSync(MEMORIES_FILE, content, "utf-8");
+      this.cache = content;
+      return "Memories synced: Notion → local";
     }
+
+    if (!notionTime) {
+      const content = readFileSync(MEMORIES_FILE, "utf-8");
+      await this.syncToNotion(content);
+      return "Memories synced: local → Notion";
+    }
+
+    if (notionTime > localTime) {
+      const content = await this.readFromNotion();
+      writeFileSync(MEMORIES_FILE, content, "utf-8");
+      this.cache = content;
+      return "Memories synced: Notion → local (Notion was newer)";
+    }
+
+    if (localTime > notionTime) {
+      const content = readFileSync(MEMORIES_FILE, "utf-8");
+      await this.syncToNotion(content);
+      return "Memories synced: local → Notion (local was newer)";
+    }
+
+    return "Memories already in sync";
   }
 
   /** Queue a Notion sync operation */
@@ -104,10 +80,9 @@ class Memories {
     this.syncQueue = this.syncQueue
       .then(async () => {
         await this.syncToNotion(content);
-        ora().succeed("Memories synced: queued → Notion");
+        logger.info("Memories synced: queued → Notion");
       })
       .catch((error) => {
-        ora().fail("Failed to sync memories to Notion");
         logger.warn({ error: error instanceof Error ? error.message : error }, "Failed to sync memories to Notion");
       });
   }
