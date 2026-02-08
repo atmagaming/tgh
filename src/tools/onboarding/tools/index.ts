@@ -1,2 +1,2 @@
 export * from "./add-to-telegram-group";
-export * from "./send-for-signature";
+export * from "../../send-for-sign";

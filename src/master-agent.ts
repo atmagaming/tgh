@@ -1,13 +1,11 @@
-import { getChatInfoTool } from "@tools/core/get-group-chat-info";
+import { coreTools } from "@tools/core";
+import { sendForSignTool } from "@tools/send-for-sign";
 import { models } from "models";
 import { memories } from "services/memories";
 import { StreamingAgent } from "streaming-agent";
-import { getMessagesTool } from "tools/core/get-messages";
-import { sendFileTool } from "tools/core/send-file";
 import { updateMemoriesTool } from "tools/core/update-memories";
 import { driveAgent } from "tools/drive";
 import { notionAgent } from "tools/notion";
-import { onboardingAgent } from "tools/onboarding";
 
 export const masterAgent = new StreamingAgent({
   name: "MasterAgent",
@@ -51,10 +49,7 @@ Between the user messages there could be different changes in the world, code, s
 You need not rely on old messages to provide constant results. The system might have changed since then.
 `.trim(),
   tools: [
-    getChatInfoTool,
-    getMessagesTool,
-    sendFileTool,
-    updateMemoriesTool,
+    ...coreTools,
     {
       agent: notionAgent,
       description:
@@ -65,6 +60,7 @@ You need not rely on old messages to provide constant results. The system might 
       description:
         "Manage Google Drive and Google Docs. Accepts a general instruction in a natural language with required ids/links/names.",
     },
+    sendForSignTool,
     // {
     //   agent: onboardingAgent,
     //   description:
