@@ -1,7 +1,7 @@
 import { coreTools } from "@tools/core";
 import { cancelSignTool, sendForSignTool } from "@tools/signing";
 import { skillTools } from "@tools/skills";
-import { webAgent } from "@tools/web";
+import { webSearchTool } from "@tools/web";
 import { models } from "models";
 import { memories } from "services/memories";
 import { skills } from "services/skills";
@@ -66,8 +66,7 @@ You need not rely on old messages to provide constant results. The system might 
     },
     {
       agent: wiseAgent,
-      description:
-        "Manage Wise account: check balances, view transfers, get exchange rates, download statements.",
+      description: "Manage Wise account: check balances, view transfers, get exchange rates, download statements.",
       isSensitive: true,
     },
     sendForSignTool,
@@ -78,11 +77,7 @@ You need not rely on old messages to provide constant results. The system might 
     //   description:
     //     "Coordinate team member onboarding - create Notion entries, generate NDAs, send for signature, add to Telegram",
     // },
-    {
-      agent: webAgent,
-      description:
-        "Search the web. Accepts a natural language research request. Use for current events, facts, documentation, pricing, or any question requiring up-to-date information.",
-    },
+    webSearchTool,
     // getAPIBalancesTool,
     // { agent: imageAgent, description: "Generate, analyze images, or create 3D models from images" },
   ],

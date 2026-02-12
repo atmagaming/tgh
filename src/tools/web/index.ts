@@ -1,1 +1,1 @@
-export { webAgent } from "./web-agent";
+export { webSearchTool } from "./search";
