@@ -10,6 +10,7 @@ import { logger } from "logger";
 import { memories } from "services/memories";
 import { skills } from "services/skills";
 import { gramjsClient } from "services/telegram";
+import { transcribeAudio } from "services/transcription";
 import { notionMcpServer } from "tools/notion";
 import { isBotMentioned } from "utils";
 
@@ -85,14 +86,22 @@ const jobQueue = new JobQueue((job: Job) =>
 );
 
 // Main message handler
-bot.on("message", (ctx) => {
+bot.on("message", async (ctx) => {
   // Only allow messages from authorized user or allowed group that mentions the bot
   if (ctx.chat?.type === "group" || ctx.chat?.type === "supergroup") {
     if (ctx.chat?.id !== env.GROUP_CHAT_ID) return;
     if (!isBotMentioned(ctx.message, botUsername)) return;
   } else if (ctx.from?.id !== env.ALLOWED_USER_ID) return;
 
-  const userMessage = ctx.message.text ?? ctx.message.caption;
+  let userMessage = ctx.message.text ?? ctx.message.caption;
+
+  if (!userMessage && ctx.message.voice) {
+    const file = await ctx.api.getFile(ctx.message.voice.file_id);
+    const fileUrl = `https://api.telegram.org/file/bot${ctx.api.token}/${file.file_path}`;
+    const response = await fetch(fileUrl);
+    const buffer = Buffer.from(await response.arrayBuffer());
+    userMessage = await transcribeAudio(buffer, ctx.message.voice.file_unique_id);
+  }
 
   logger.info({ userMessage }, "Received message");
 
