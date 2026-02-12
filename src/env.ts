@@ -45,6 +45,10 @@ const envSchema = z
     // DigiSigner
     DIGISIGNER_API_KEY: z.string().min(1, "DIGISIGNER_API_KEY is required"),
 
+    // Wise
+    WISE_API_TOKEN: z.string().min(1, "WISE_API_TOKEN is required"),
+    WISE_PRIVATE_KEY_PATH: z.string().min(1, "WISE_PRIVATE_KEY_PATH is required"),
+
     VERBOSE: z.number().default(0),
   })
   .refine((data) => data.BOT_MODE !== "webhook" || data.BASE_URL, {

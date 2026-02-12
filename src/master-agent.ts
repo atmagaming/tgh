@@ -8,6 +8,7 @@ import { StreamingAgent } from "streaming-agent";
 import { updateMemoriesTool } from "tools/core/update-memories";
 import { driveAgent } from "tools/drive";
 import { notionAgent } from "tools/notion";
+import { wiseAgent } from "tools/wise";
 
 export const masterAgent = new StreamingAgent({
   name: "MasterAgent",
@@ -61,6 +62,11 @@ You need not rely on old messages to provide constant results. The system might 
       agent: driveAgent,
       description:
         "Manage Google Drive and Google Docs. Accepts a general instruction in a natural language with required ids/links/names.",
+    },
+    {
+      agent: wiseAgent,
+      description:
+        "Manage Wise account: check balances, view transfers, get exchange rates, download statements.",
     },
     sendForSignTool,
     cancelSignTool,
