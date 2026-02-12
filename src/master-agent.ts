@@ -10,6 +10,7 @@ import { StreamingAgent } from "streaming-agent";
 import { updateMemoriesTool } from "tools/core/update-memories";
 import { calendarAgent } from "tools/calendar";
 import { driveAgent } from "tools/drive";
+import { emailAgent } from "tools/email";
 import { notionAgent } from "tools/notion";
 import { wiseAgent } from "tools/wise";
 
@@ -52,6 +53,10 @@ export const masterAgent = new StreamingAgent({
       agent: wiseAgent,
       description: "Manage Wise account: check balances, view transfers, get exchange rates, download statements.",
       isSensitive: true,
+    },
+    {
+      agent: emailAgent,
+      description: "Manage email: check inbox, search, read, compose, reply, send emails across multiple accounts.",
     },
     sendForSignTool,
     cancelSignTool,
