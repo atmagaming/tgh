@@ -10,6 +10,7 @@ import { Listr } from "listr2";
 import { logger } from "logger";
 import { memories } from "services/memories";
 import { skills } from "services/skills";
+import { systemPrompt } from "services/system-prompt";
 import { gramjsClient } from "services/telegram";
 import { transcribeAudio } from "services/transcription";
 import { notionMcpServer } from "tools/notion";
@@ -60,6 +61,12 @@ await new Listr(
       title: "Sync skills",
       task: async (_, task) => {
         task.title = await skills.sync();
+      },
+    },
+    {
+      title: "Sync system prompt",
+      task: async (_, task) => {
+        task.title = await systemPrompt.sync();
       },
     },
     {

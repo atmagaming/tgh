@@ -25,6 +25,7 @@ const envSchema = z
     NOTION_TASKS_DB_ID: z.string().min(1, "NOTION_TASKS_DB_ID is required"),
     NOTION_HYPOCRISY_DB_ID: z.string().min(1, "NOTION_HYPOCRISY_DB_ID is required"),
     NOTION_SKILLS_DB_ID: z.string().min(1, "NOTION_SKILLS_DB_ID is required"),
+    NOTION_SYSTEM_PROMPT_PAGE_ID: z.string().min(1, "NOTION_SYSTEM_PROMPT_PAGE_ID is required"),
 
     // Telegram User Client (GramJS)
     TELEGRAM_API_ID: z.coerce.number(),
