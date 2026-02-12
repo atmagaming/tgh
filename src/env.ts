@@ -15,6 +15,7 @@ const envSchema = z
     GEMINI_API_KEY: z.string().min(1, "GEMINI_API_KEY is required"),
     MESHY_API_KEY: z.string().min(1, "MESHY_API_KEY is required"),
     PERPLEXITY_API_KEY: z.string().min(1, "PERPLEXITY_API_KEY is required"),
+    BRAVE_SEARCH_API_KEY: z.string().min(1, "BRAVE_SEARCH_API_KEY is required"),
 
     // Notion Integration
     NOTION_API_KEY: z.string().min(1, "NOTION_API_KEY is required"),

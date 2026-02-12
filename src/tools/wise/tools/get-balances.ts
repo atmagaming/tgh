@@ -4,7 +4,7 @@ import { z } from "zod";
 
 export const getBalancesTool = defineTool(
   "GetWiseBalances",
-  "Get all Wise account balances across currencies",
+  "Get all balances across currencies",
   z.object({}),
   async () => {
     const profiles = await wise.getProfiles();

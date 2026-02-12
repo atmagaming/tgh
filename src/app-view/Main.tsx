@@ -44,7 +44,10 @@ export function Main() {
     try {
       await masterAgent.run(content, job);
     } catch (error) {
-      logger.error({ error: error instanceof Error ? error.message : error }, "Agent run failed");
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error({ error: message }, "Agent run failed");
+      masterAgent.output.started.emit();
+      masterAgent.output.delta.emit(`Error: ${message}`);
     }
 
     job.thinkingDuration = (Date.now() - startTime) / 1000;

@@ -2,13 +2,9 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Commands
+## Useful Commands
 
 ```bash
-bun run dev          # Development with watch mode
-bun run cli          # Interactive CLI for testing (no Telegram)
-bun test             # Run tests (excludes manual tests)
-bun run test:manual  # Run all tests including manual ones
 bun run lint         # Check with Biome
 bun run format       # Format with Biome
 ```
@@ -26,17 +22,6 @@ bun run format       # Format with Biome
 - **Never use `||` for defaults** - always use `??` (nullish coalescing) unless you specifically need to handle falsy values
 - **Never add unnecessary `?` optional chaining** - if a value is always defined, don't mark it optional
 - **Interface vs abstract class**: Use interface when defining a contract with no shared implementation; use abstract class only when there's behavior to share
-
-## Test Creation Guidelines
-
-- **Test functionality, not implementation details**. Avoid testing:
-  - Agent/tool names, descriptions, or schema structures
-  - Model names (e.g., "should use sonnet")
-  - Thinking budgets or token limits
-  - Required parameter lists or tool existence
-- **Focus on actual behavior**: Test if agents/tools complete their job successfully
-- **Manual tests are acceptable**: If only manual tests exist for a feature, that's fine
-- Keep tests that verify error handling and edge cases
 
 ## Agent System Prompts
 
@@ -110,6 +95,7 @@ export const myAgent = new Agent({
   - `models.thinking` (GPT-5.1) - Complex agentic tasks, multi-step workflows
 - **Agents are exported as constants** - Not classes (e.g., `export const memoryAgent`)
 - **Agents as Tools** - Sub-agents are converted to tools using `.asTool()`:
+
   ```typescript
   const subAgentTool = subAgent.asTool({
     toolName: "sub_agent",
@@ -121,6 +107,7 @@ export const myAgent = new Agent({
     tools: [regularTool1, regularTool2, subAgentTool],
   });
   ```
+
 - **Handoffs vs Agents as Tools:**
   - Use **agents as tools** (`.asTool()`) when you need function-like calls with discrete results
   - Use **handoffs** when transferring full conversation control (rare, for chat routing systems)
@@ -143,17 +130,16 @@ interface AppContext {
 ```
 
 **Usage:**
+
 - Access Telegram context: `context.telegramContext`
 - Report progress: `context.onProgress?.({ type: "status", message: "..." })`
 - Send files: Return `{ files: [{ buffer, mimeType, filename }] }` - auto-routed via `onFile`
 
 ## General Guidelines
 
-- Never run dev in background - ALWAYS ask user to do so. But firstly, check if the process is already running. That is, do this ONLY if you actually require to run the bot. If you just need to test some functionality - write unit tests and run them.
+- Never run dev in background - ALWAYS ask user to do so. But firstly, check if the process is already running. That is, do this ONLY if you actually require to run the bot.
 
-- For quick functionality testing/debugging, use `bun run cli "your prompt here"` to process a single prompt and see the output. Add more logging to trace execution flow if needed.
-
-- When implementing new feature or doing refactoring, make sure there are no problems/errors left. Use `bun run lint` and `CLAUDECODE=1 bun test` to verify. and fix any issues reported. Use `CLAUDECODE=1` to improve readability and reduce context noise.
+- When implementing new feature or doing refactoring, make sure there are no problems/errors left. Use `bun run lint` to verify. and fix any issues reported.
 
 - For `render` commands always specify `-o` options to specify a non-interactive output mode.
 
@@ -179,11 +165,9 @@ class Example {
 }
 ```
 
-- When working on some feature, it is okay to run manual tests. Don't run all tests unless it's ACTUALLY needed. Run only specific tests related to your changes. Once these tests have succeeded, you may run the final automatic (non-manual) unit tests.
-
 ## IO Architecture (`src/io/`)
 
-The IO system provides abstracted Input and Output handling for both Telegram and CLI.
+The IO system provides abstracted Input and Output handling.
 
 ### Input System (Event-based)
 
@@ -193,7 +177,7 @@ abstract class Input {
   off(event: "message", callback: (msg: Message) => void): void;
 }
 
-// Implementations: CLIInput, TelegramInput
+// Implementations: TelegramInput
 // TelegramInput auto-transcribes voice messages via Whisper before emitting
 ```
 
@@ -226,8 +210,12 @@ import { runAgent } from "agents/runner";
 import { masterAgent } from "agents/master-agent/master-agent";
 
 const context: AppContext = job.toAppContext({
-  onProgress: (event) => { /* handle progress */ },
-  onFile: (file) => { /* handle file output */ },
+  onProgress: (event) => {
+    /* handle progress */
+  },
+  onFile: (file) => {
+    /* handle file output */
+  },
 });
 
 const result = await runAgent(masterAgent, userMessage, context);
@@ -235,6 +223,6 @@ const result = await runAgent(masterAgent, userMessage, context);
 ```
 
 **Integration Points:**
-- CLI: `src/cli.ts` - Direct `runAgent()` usage
+
 - Telegram: `src/app.tsx` - Convert Job to AppContext, then run agent
 - Job conversion: `job.toAppContext({ onProgress, onFile })` provides context
