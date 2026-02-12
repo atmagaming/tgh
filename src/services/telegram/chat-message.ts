@@ -58,7 +58,12 @@ export class ChatMessage {
     readonly attachments: ChatAttachment[],
   ) {}
 
-  static fromApiMessage(msg: Api.Message, chatTitle?: string, topicsMap?: Map<number, string>, transcription?: string): ChatMessage {
+  static fromApiMessage(
+    msg: Api.Message,
+    chatTitle?: string,
+    topicsMap?: Map<number, string>,
+    transcription?: string,
+  ): ChatMessage {
     let userName: string | undefined;
     let fullName: string | undefined;
     const sender = msg.sender;

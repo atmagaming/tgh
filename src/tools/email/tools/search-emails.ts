@@ -44,4 +44,5 @@ export const searchEmailsTool = defineTool(
       })
       .join("\n");
   },
+  { isSensitive: true },
 );

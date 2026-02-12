@@ -1,4 +1,3 @@
-export { composeDraftTool } from "./compose-draft";
 export { listAccountsTool } from "./list-accounts";
 export { listEmailsTool } from "./list-emails";
 export { readEmailTool } from "./read-email";

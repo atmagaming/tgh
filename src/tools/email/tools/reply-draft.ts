@@ -40,4 +40,5 @@ export const replyDraftTool = defineTool(
 
     return { draft, preview };
   },
+  { isSensitive: true },
 );

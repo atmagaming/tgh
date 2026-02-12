@@ -108,8 +108,7 @@ export class GramJSClient {
         const { voice } = apiMsg;
         if (!voice) return;
         const buffer = await this.client.downloadMedia(apiMsg, {});
-        if (buffer instanceof Buffer)
-          transcriptions.set(apiMsg.id, await transcribeAudio(buffer, String(voice.id)));
+        if (buffer instanceof Buffer) transcriptions.set(apiMsg.id, await transcribeAudio(buffer, String(voice.id)));
       }),
     );
 

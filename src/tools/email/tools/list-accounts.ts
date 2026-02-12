@@ -9,6 +9,7 @@ export const listAccountsTool = defineTool(
   () => {
     const accounts = emailAccounts.listAccounts();
     if (accounts.length === 0) return "No email accounts configured.";
-    return accounts.map((a) => `- **${a.name}** (${a.type}): ${a.address}`).join("\n");
+    return accounts.map((a) => `- **${a.name}**: ${a.address}`).join("\n");
   },
+  { isSensitive: true },
 );

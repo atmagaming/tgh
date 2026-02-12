@@ -26,4 +26,5 @@ export const listEmailsTool = defineTool(
       })
       .join("\n");
   },
+  { isSensitive: true },
 );

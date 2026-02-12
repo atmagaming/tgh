@@ -45,10 +45,7 @@ export class CalendarApi {
     return response.data;
   }
 
-  async createEvent(
-    calendarId: string,
-    event: calendar_v3.Schema$Event,
-  ): Promise<calendar_v3.Schema$Event> {
+  async createEvent(calendarId: string, event: calendar_v3.Schema$Event): Promise<calendar_v3.Schema$Event> {
     const response = await this.client.events.insert({
       calendarId,
       requestBody: event,

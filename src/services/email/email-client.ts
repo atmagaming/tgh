@@ -1,7 +1,43 @@
 import { ImapFlow } from "imapflow";
 import nodemailer from "nodemailer";
-import { EmailProvider } from "./email-provider";
-import type { EmailDraft, EmailMessage, EmailSearchQuery, ListEmailsOptions } from "./types";
+
+export interface EmailAddress {
+  name: string | null;
+  address: string;
+}
+
+export interface EmailMessage {
+  id: string;
+  threadId: string | null;
+  from: EmailAddress | null;
+  to: EmailAddress[];
+  cc: EmailAddress[];
+  subject: string | null;
+  snippet: string | null;
+  body: string | null;
+  date: Date | null;
+  isUnread: boolean;
+  hasAttachments: boolean;
+  labels: string[];
+}
+
+export interface EmailDraft {
+  to: EmailAddress[];
+  cc: EmailAddress[];
+  subject: string;
+  body: string;
+  inReplyTo: string | null;
+}
+
+export interface EmailSearchQuery {
+  from: string | null;
+  to: string | null;
+  subject: string | null;
+  after: string | null;
+  before: string | null;
+  unreadOnly: boolean;
+  query: string | null;
+}
 
 interface ImapConfig {
   host: string;
@@ -12,31 +48,26 @@ interface ImapConfig {
   smtpPort: number;
 }
 
-export class ImapProvider extends EmailProvider {
-  readonly name: string;
-  readonly address: string;
-  private readonly config: ImapConfig;
+export class EmailClient {
+  constructor(
+    readonly name: string,
+    readonly address: string,
+    private readonly config: ImapConfig,
+  ) {}
 
-  constructor(name: string, address: string, config: ImapConfig) {
-    super();
-    this.name = name;
-    this.address = address;
-    this.config = config;
-  }
-
-  async listEmails(options?: Partial<ListEmailsOptions>): Promise<EmailMessage[]> {
+  async listEmails(options?: { maxResults?: number; unreadOnly?: boolean }): Promise<EmailMessage[]> {
     const maxResults = options?.maxResults ?? 20;
     const client = await this.connect();
     try {
       const lock = await client.getMailboxLock("INBOX");
       try {
-        const messages: EmailMessage[] = [];
         const searchCriteria = options?.unreadOnly ? { seen: false } : { all: true };
         const result = await client.search(searchCriteria, { uid: true });
         const uids = Array.isArray(result) ? result : [];
         const selected = uids.slice(-maxResults).reverse();
         if (selected.length === 0) return [];
 
+        const messages: EmailMessage[] = [];
         for await (const msg of client.fetch(
           selected,
           { envelope: true, bodyStructure: true, flags: true, uid: true },

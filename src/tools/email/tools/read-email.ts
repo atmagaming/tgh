@@ -34,4 +34,5 @@ export const readEmailTool = defineTool(
 
     return parts.filter((p) => p !== null).join("\n");
   },
+  { isSensitive: true },
 );

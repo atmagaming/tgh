@@ -25,7 +25,10 @@ export class NotionAPI {
     return page.id;
   }
 
-  async updatePage(pageId: string, updates: { properties?: Record<string, unknown>; archived?: boolean }): Promise<void> {
+  async updatePage(
+    pageId: string,
+    updates: { properties?: Record<string, unknown>; archived?: boolean },
+  ): Promise<void> {
     // biome-ignore lint: Notion SDK types are overly strict for dynamic property construction
     await this.client.pages.update({ page_id: pageId, ...updates } as any);
   }

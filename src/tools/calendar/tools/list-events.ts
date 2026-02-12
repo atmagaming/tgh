@@ -12,12 +12,7 @@ export const listEventsTool = defineTool(
     max_results: z.number().nullable().describe("Maximum number of events to return (default: 50)"),
   }),
   async ({ calendar_id, time_min, time_max, max_results }) => {
-    const events = await google.calendar.listEvents(
-      calendar_id ?? "primary",
-      time_min,
-      time_max,
-      max_results ?? 50,
-    );
+    const events = await google.calendar.listEvents(calendar_id ?? "primary", time_min, time_max, max_results ?? 50);
 
     if (events.length === 0) return "No events found in the specified range.";
 
