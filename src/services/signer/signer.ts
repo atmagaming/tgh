@@ -38,11 +38,12 @@ export async function sendForSign(
     }),
   );
 
-  const documentId = await digiSigner.upload(fileBuffer, filePath.split("/").pop()!);
+  const fileName = filePath.split("/").last ?? "document.pdf";
+  const documentId = await digiSigner.upload(fileBuffer, fileName);
 
   const { signature_request_id } = await digiSigner.sendSignatureRequest(documentId, {
     signers: signersWithBoxes,
-    subject: subject ?? `Please sign: ${filePath.split("/").pop()}`,
+    subject: subject ?? `Please sign: ${fileName}`,
     message: message ?? "Please review and sign the document.",
   });
 

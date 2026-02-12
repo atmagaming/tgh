@@ -1,5 +1,6 @@
 import { env } from "env";
 import { logger } from "logger";
+import { transcribeAudio } from "services/transcription";
 import { TelegramClient } from "telegram";
 import { Logger } from "telegram/extensions/Logger";
 import { StringSession } from "telegram/sessions";
@@ -89,13 +90,32 @@ export class GramJSClient {
       }
     }
 
-    const apiMessages = await this.client.getMessages(chatId, {
-      search: query,
-      limit: Math.min(limit, GRAMJS_MAX_MESSAGES_LIMIT),
-      offsetId: offset,
-    });
+    let apiMessages: Awaited<ReturnType<TelegramClient["getMessages"]>>;
+    try {
+      apiMessages = await this.client.getMessages(chatId, {
+        search: query,
+        limit: Math.min(limit, GRAMJS_MAX_MESSAGES_LIMIT),
+        offsetId: offset,
+      });
+    } catch (error) {
+      logger.warn({ chatId, error: error instanceof Error ? error.message : error }, "Failed to fetch messages");
+      return [];
+    }
 
-    let messages = apiMessages.map((msg) => ChatMessage.fromApiMessage(msg, chatInfo.title, topicsMap));
+    const transcriptions = new Map<number, string>();
+    await Promise.all(
+      apiMessages.map(async (apiMsg) => {
+        const { voice } = apiMsg;
+        if (!voice) return;
+        const buffer = await this.client.downloadMedia(apiMsg, {});
+        if (buffer instanceof Buffer)
+          transcriptions.set(apiMsg.id, await transcribeAudio(buffer, String(voice.id)));
+      }),
+    );
+
+    let messages = apiMessages.map((msg) =>
+      ChatMessage.fromApiMessage(msg, chatInfo.title, topicsMap, transcriptions.get(msg.id)),
+    );
 
     // Apply date filtering
     const beforeTimestamp = beforeDate ? beforeDate.getTime() / 1000 : null;

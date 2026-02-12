@@ -1,4 +1,3 @@
-/** biome-ignore-all lint/style/useConsistentMemberAccessibility: Using public to declare mutable class fields */
 import { Api } from "telegram/tl";
 
 export interface ChatAttachment {
@@ -49,17 +48,17 @@ function applyEntities(text: string, entities?: Api.TypeMessageEntity[]): string
 
 export class ChatMessage {
   constructor(
-    public id: number,
-    public text: string,
-    public date: Date,
-    public userName?: string,
-    public fullName?: string,
-    public chatTitle?: string,
-    public topicName?: string,
-    public attachments?: ChatAttachment[],
+    readonly id: number,
+    readonly text: string,
+    readonly date: Date,
+    readonly userName: string,
+    readonly fullName: string,
+    readonly chatTitle: string,
+    readonly topicName: string | undefined,
+    readonly attachments: ChatAttachment[],
   ) {}
 
-  static fromApiMessage(msg: Api.Message, chatTitle?: string, topicsMap?: Map<number, string>): ChatMessage {
+  static fromApiMessage(msg: Api.Message, chatTitle?: string, topicsMap?: Map<number, string>, transcription?: string): ChatMessage {
     let userName: string | undefined;
     let fullName: string | undefined;
     const sender = msg.sender;
@@ -98,11 +97,11 @@ export class ChatMessage {
 
     return new ChatMessage(
       msg.id,
-      applyEntities(msg.message ?? "", msg.entities),
+      transcription ?? applyEntities(msg.message ?? "", msg.entities),
       new Date(msg.date * 1000),
-      userName,
-      fullName,
-      chatTitle,
+      userName ?? "(unknown)",
+      fullName ?? "(unknown)",
+      chatTitle ?? "(unknown)",
       topicName,
       attachments,
     );
@@ -120,18 +119,16 @@ export class ChatMessage {
 
     const content: string[] = [];
     if (this.text) content.push(this.text);
-    if (this.attachments) {
-      for (const att of this.attachments) {
-        if (att.type === "photo") {
-          content.push(`<photo id="${att.id}" />`);
-        } else if (att.type === "voice") {
-          content.push(`<voice id="${att.id}" />`);
-        } else if (att.type === "video") {
-          content.push(`<video id="${att.id}" />`);
-        } else {
-          const extAttr = att.extension ? ` type="${att.extension}"` : "";
-          content.push(`<file id="${att.id}"${extAttr} />`);
-        }
+    for (const att of this.attachments) {
+      if (att.type === "photo") {
+        content.push(`<photo id="${att.id}" />`);
+      } else if (att.type === "voice") {
+        content.push(`<voice id="${att.id}" />`);
+      } else if (att.type === "video") {
+        content.push(`<video id="${att.id}" />`);
+      } else {
+        const extAttr = att.extension ? ` type="${att.extension}"` : "";
+        content.push(`<file id="${att.id}"${extAttr} />`);
       }
     }
 
