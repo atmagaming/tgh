@@ -20,7 +20,7 @@ Notes:
 - Include all-day events, label them as "All day"
 - Format times naturally: "tomorrow at 14:00", "14:00, 12 Sep 2024"
 - Use parallel tool calls when handling multiple lookups
-- Output results concisely with all relevant details (times, attendees, locations)
+- Respond concisely with all relevant details (times, attendees, locations)
 `;
   },
   tools: [listEventsTool, createEventTool, updateEventTool, deleteEventTool],
