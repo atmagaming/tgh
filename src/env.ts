@@ -45,6 +45,9 @@ const envSchema = z
     // DigiSigner
     DIGISIGNER_API_KEY: z.string().min(1, "DIGISIGNER_API_KEY is required"),
 
+    // Database
+    DB_PATH: z.string().optional(),
+
     VERBOSE: z.number().default(0),
   })
   .refine((data) => data.BOT_MODE !== "webhook" || data.BASE_URL, {
