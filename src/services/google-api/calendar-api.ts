@@ -5,9 +5,18 @@ import { logger } from "logger";
 
 export class CalendarApi {
   private readonly client;
+  private cachedTimezone: string | null = null;
 
   constructor(auth: OAuth2Client) {
     this.client = google.calendar({ version: "v3", auth });
+  }
+
+  async getTimezone(): Promise<string> {
+    if (this.cachedTimezone) return this.cachedTimezone;
+    const response = await this.client.calendars.get({ calendarId: "primary" });
+    this.cachedTimezone = response.data.timeZone ?? "UTC";
+    logger.info({ timezone: this.cachedTimezone }, "Fetched calendar timezone");
+    return this.cachedTimezone;
   }
 
   async listEvents(

@@ -1,23 +1,27 @@
 import { models } from "models";
+import { google } from "services/google-api";
 import { StreamingAgent } from "streaming-agent";
-import { createEventTool } from "./tools/create-event";
-import { deleteEventTool } from "./tools/delete-event";
-import { getFreeBusyTool } from "./tools/get-free-busy";
-import { listEventsTool } from "./tools/list-events";
-import { updateEventTool } from "./tools/update-event";
-
-const CALENDAR_AGENT_PROMPT = `You manage Google Calendar events.
-
-Notes:
-- Default calendar is "primary" unless user specifies otherwise
-- Use ISO 8601 format for all dates/times, respecting user's timezone when mentioned
-- Use parallel tool calls when handling multiple lookups
-- Output results in concise format with all relevant details (times, attendees, locations)
-`;
+import { createEventTool, deleteEventTool, listEventsTool, updateEventTool } from "./tools";
 
 export const calendarAgent = new StreamingAgent({
   name: "CalendarAgent",
   model: models.nano,
-  instructions: CALENDAR_AGENT_PROMPT,
-  tools: [listEventsTool, createEventTool, updateEventTool, deleteEventTool, getFreeBusyTool],
+  instructions: async () => {
+    const timezone = await google.calendar.getTimezone();
+    return `You manage Google Calendar events.
+
+Current timezone: ${timezone}
+Current date/time: ${new Date().toLocaleString("en-US", { timeZone: timezone })}
+
+Notes:
+- Never ask clarifying questions — use sensible defaults and act immediately
+- Default calendar is "primary"
+- Use ${timezone} for all date/time calculations
+- Include all-day events, label them as "All day"
+- Format times naturally: "tomorrow at 14:00", "14:00, 12 Sep 2024"
+- Use parallel tool calls when handling multiple lookups
+- Output results concisely with all relevant details (times, attendees, locations)
+`;
+  },
+  tools: [listEventsTool, createEventTool, updateEventTool, deleteEventTool],
 });
