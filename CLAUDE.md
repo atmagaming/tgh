@@ -37,6 +37,7 @@ We deploy on Render, which has some specific requirements:
 - Never add unnecessary `?` optional chaining - if a value is always defined, don't mark it optional
 - Don't use `!` - throw a descriptive error instead
 - Don't define excessive helper interfaces and types - rely more on typescript inference - write minimal, readable code
+- Never simply silence errors. Always at least log them to console: `catch (e) { throw new Error("Descriptive message: " + e.message); }`
 
 ```typescript
 class Example {

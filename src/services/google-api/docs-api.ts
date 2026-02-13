@@ -12,6 +12,16 @@ export class DocsApi {
     this.driveClient = google.drive({ version: "v3", auth });
   }
 
+  async getDocument(documentId: string) {
+    const response = await this.docsClient.documents.get({ documentId });
+    return response.data;
+  }
+
+  async batchUpdate(documentId: string, requests: docs_v1.Schema$Request[]) {
+    await this.docsClient.documents.batchUpdate({ documentId, requestBody: { requests } });
+    logger.info({ documentId, requestCount: requests.length }, "Batch update applied to document");
+  }
+
   async replaceText(documentId: string, replacements: { placeholder: string; value: string }[]): Promise<void> {
     const requests: docs_v1.Schema$Request[] = replacements.map(({ placeholder, value }) => ({
       replaceAllText: {

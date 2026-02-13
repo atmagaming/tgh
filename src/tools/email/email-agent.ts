@@ -1,6 +1,13 @@
 import { models } from "models";
 import { StreamingAgent } from "streaming-agent";
-import { listAccountsTool, listEmailsTool, readEmailTool, replyDraftTool, searchEmailsTool, sendEmailTool } from "./tools";
+import {
+  listAccountsTool,
+  listEmailsTool,
+  readEmailTool,
+  replyDraftTool,
+  searchEmailsTool,
+  sendEmailTool,
+} from "./tools";
 
 const EMAIL_AGENT_PROMPT = `You manage email across multiple accounts.
 
