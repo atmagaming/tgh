@@ -1,9 +1,10 @@
 import { Api } from "telegram/tl";
 
 export interface ChatAttachment {
-  type: "photo" | "file" | "voice" | "video";
+  type: "photo" | "file" | "voice" | "video" | "sticker";
   id: string;
   extension?: string;
+  emoji?: string;
 }
 
 export type MessageOrder = "oldest first" | "newest first";
@@ -54,8 +55,15 @@ export class ChatMessage {
     readonly userName: string,
     readonly fullName: string,
     readonly chatTitle: string,
-    readonly topicName: string | undefined,
-    readonly attachments: ChatAttachment[],
+    readonly topicName?: string,
+    readonly attachments: ChatAttachment[] = [],
+    readonly repliesTo?: number,
+    readonly forwardedFrom?: string,
+    readonly forwardedMessageId?: number,
+    readonly edited = false,
+    readonly pinned = false,
+    readonly groupedId?: string,
+    readonly viaBotName?: string,
   ) {}
 
   static fromApiMessage(
@@ -78,26 +86,52 @@ export class ChatMessage {
       fullName = sender.title;
     }
 
-    // Get topic name if in a forum topic
+    // Get topic name and reply-to message ID
     let topicName: string | undefined;
+    let repliesTo: number | undefined;
     const replyTo = msg.replyTo as Record<string, unknown> | undefined;
-    if (replyTo && "forumTopic" in replyTo && replyTo.forumTopic === true) {
-      const topicId = replyTo.replyToMsgId as number | undefined;
-      if (topicId && topicsMap) topicName = topicsMap.get(topicId);
+    if (replyTo && "replyToMsgId" in replyTo) {
+      const replyToMsgId = replyTo.replyToMsgId as number | undefined;
+      if ("forumTopic" in replyTo && replyTo.forumTopic === true) {
+        if (replyToMsgId && topicsMap) topicName = topicsMap.get(replyToMsgId);
+      } else {
+        repliesTo = replyToMsgId;
+      }
+    }
+
+    // Get forward info
+    let forwardedFrom: string | undefined;
+    let forwardedMessageId: number | undefined;
+    if (msg.fwdFrom) {
+      const fwd = msg.fwdFrom;
+      if (fwd.fromName) forwardedFrom = fwd.fromName;
+      else if (fwd.fromId) forwardedFrom = String(fwd.fromId);
+      forwardedMessageId = fwd.channelPost ?? fwd.savedFromMsgId;
     }
 
     // Get attachments
     const attachments: ChatAttachment[] = [];
-    if (msg.photo) attachments.push({ type: "photo", id: String(msg.photo.id) });
-    if (msg.video) attachments.push({ type: "video", id: String(msg.video.id) });
-    if (msg.voice) attachments.push({ type: "voice", id: String(msg.voice.id) });
-    if (msg.document && !msg.voice && !msg.video) {
+    if (msg.sticker) {
+      const stickerAttrs = msg.sticker.attributes as Array<{ alt?: string }> | undefined;
+      const emoji = stickerAttrs?.find((a) => a.alt)?.alt;
+      attachments.push({ type: "sticker", id: String(msg.sticker.id), emoji });
+    } else if (msg.photo) attachments.push({ type: "photo", id: String(msg.photo.id) });
+    else if (msg.video) attachments.push({ type: "video", id: String(msg.video.id) });
+    else if (msg.voice) attachments.push({ type: "voice", id: String(msg.voice.id) });
+    else if (msg.document && !msg.voice && !msg.video) {
       const fileName =
         "attributes" in msg.document
           ? (msg.document.attributes as Array<{ fileName?: string }>)?.find((a) => a.fileName)?.fileName
           : undefined;
       const extension = fileName?.split(".").pop();
       attachments.push({ type: "file", id: String(msg.document.id), extension });
+    }
+
+    // Via bot name
+    let viaBotName: string | undefined;
+    if (msg.viaBotId) {
+      const viaBot = msg._entities?.get(String(msg.viaBotId));
+      if (viaBot && "username" in viaBot) viaBotName = `@${viaBot.username}`;
     }
 
     return new ChatMessage(
@@ -109,6 +143,13 @@ export class ChatMessage {
       chatTitle ?? "(unknown)",
       topicName,
       attachments,
+      repliesTo,
+      forwardedFrom,
+      forwardedMessageId,
+      msg.editDate !== undefined,
+      msg.pinned ?? false,
+      msg.groupedId ? String(msg.groupedId) : undefined,
+      viaBotName,
     );
   }
 
@@ -120,6 +161,13 @@ export class ChatMessage {
     if (this.fullName) attrs.push(`name="${this.fullName}"`);
     if (this.chatTitle) attrs.push(`chat="${this.chatTitle}"`);
     if (this.topicName) attrs.push(`topic="${this.topicName}"`);
+    if (this.repliesTo) attrs.push(`repliesTo="${this.repliesTo}"`);
+    if (this.forwardedFrom) attrs.push(`forwardedFrom="${this.forwardedFrom}"`);
+    if (this.forwardedMessageId) attrs.push(`forwardedMessageId="${this.forwardedMessageId}"`);
+    if (this.edited) attrs.push("edited");
+    if (this.pinned) attrs.push("pinned");
+    if (this.groupedId) attrs.push(`album="${this.groupedId}"`);
+    if (this.viaBotName) attrs.push(`via="${this.viaBotName}"`);
     const attrStr = ` ${attrs.join(" ")}`;
 
     const content: string[] = [];
@@ -131,6 +179,9 @@ export class ChatMessage {
         content.push(`<voice id="${att.id}" />`);
       } else if (att.type === "video") {
         content.push(`<video id="${att.id}" />`);
+      } else if (att.type === "sticker") {
+        const emojiAttr = att.emoji ? ` emoji="${att.emoji}"` : "";
+        content.push(`<sticker id="${att.id}"${emojiAttr} />`);
       } else {
         const extAttr = att.extension ? ` type="${att.extension}"` : "";
         content.push(`<file id="${att.id}"${extAttr} />`);

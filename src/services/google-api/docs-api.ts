@@ -22,25 +22,6 @@ export class DocsApi {
     logger.info({ documentId, requestCount: requests.length }, "Batch update applied to document");
   }
 
-  async replaceText(documentId: string, replacements: { placeholder: string; value: string }[]): Promise<void> {
-    const requests: docs_v1.Schema$Request[] = replacements.map(({ placeholder, value }) => ({
-      replaceAllText: {
-        containsText: {
-          text: placeholder,
-          matchCase: true,
-        },
-        replaceText: value,
-      },
-    }));
-
-    await this.docsClient.documents.batchUpdate({
-      documentId,
-      requestBody: { requests },
-    });
-
-    logger.info({ documentId, replacementCount: requests.length }, "Text replaced in document");
-  }
-
   /**
    * Export a Google Doc as PDF
    */
