@@ -33,7 +33,7 @@ const operationSchema = z.object({
 
 export const editGoogleDocTool = defineTool(
   "EditGoogleDoc",
-  "Edit a Google Doc with multiple operations. Read the doc first with ReadGoogleDoc to get character indices.",
+  "Edit a Google Doc with multiple operations. Prefer replaceAll for text-based edits.",
   z.object({
     documentId: z.string().describe("Google Doc ID"),
     operations: z.array(operationSchema).describe("Operations to apply"),
