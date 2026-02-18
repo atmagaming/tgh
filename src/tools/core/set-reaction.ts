@@ -8,13 +8,9 @@ export const setReactionTool = defineTool(
   z.object({
     emoji: z.string().describe("Telegram reaction emoji"),
   }),
-  async ({ emoji }, job) => {
-    const chatId = job.telegramContext.chat?.id;
-    if (!chatId) return "No chat context available";
-
-    await job.telegramContext.api.setMessageReaction(chatId, job.messageId, [
+  ({ emoji }, job) =>
+    job.telegramContext.api.setMessageReaction(job.currentChatId, job.messageId, [
       { type: "emoji", emoji: emoji as ReactionTypeEmoji["emoji"] },
-    ]);
-    return `Reaction "${emoji}" set`;
-  },
+    ]),
+  { isHidden: true },
 );

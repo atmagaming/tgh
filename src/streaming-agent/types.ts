@@ -12,8 +12,10 @@ export interface ToolCallData {
   input: Record<string, unknown>;
   log: EventEmitter<string>;
   output: DeltaStream;
+  error: EventEmitter;
   outputEnded?: boolean;
   outputValue?: string;
+  isHidden?: boolean;
 }
 
 export interface AgentCallData {
@@ -25,6 +27,7 @@ export interface AgentCallData {
   output: DeltaStream;
   log: EventEmitter<string>;
   call: EventEmitter<CallData>;
+  error: EventEmitter;
   outputEnded?: boolean;
 }
 
@@ -36,6 +39,7 @@ export interface ToolDefinition<TParams extends z.ZodType = z.ZodType, TReturn =
   parameters: TParams;
   execute: (params: z.infer<TParams>, context: Job) => TReturn | Promise<TReturn>;
   isSensitive?: boolean;
+  isHidden?: boolean;
 }
 
 export interface NestedAgent {

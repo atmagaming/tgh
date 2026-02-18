@@ -15,6 +15,6 @@ export const sendFileTool = defineTool(
     const { buffer } = await readFile(filePath);
     const name = fileName ?? path.basename(filePath);
     job.addFile(buffer, name, type);
-    return `File "${name}" sent to user`;
   },
+  { isHidden: true },
 );

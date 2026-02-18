@@ -1,4 +1,4 @@
-import type { CallData } from "@agentic";
+import type { CallData } from "streaming-agent";
 import { Line } from "./Line";
 import { Tool } from "./Tool";
 
@@ -7,29 +7,20 @@ export type Step = { type: "log"; message: string } | { type: "call"; data: Call
 interface StepsProps {
   steps: readonly Step[];
   depth: number;
-  root?: boolean;
-  hasOutput: boolean;
-  getPrefix: (index: number) => string;
-  onNestedSummarized: (name: string) => void;
 }
 
-export function Steps({ steps, depth, root, hasOutput, getPrefix, onNestedSummarized }: StepsProps) {
+export function Steps({ steps, depth }: StepsProps) {
+  const indent = "  ".repeat(depth + 1);
   return (
     <>
-      {steps.map((step, index) =>
+      {steps.map((step) =>
         step.type === "log" ? (
           <Line key={step.message}>
-            {getPrefix(index)}
+            {indent}
             {step.message}
           </Line>
         ) : (
-          <Tool
-            key={step.data.id}
-            depth={depth + 1}
-            data={step.data}
-            isLast={index === steps.length - 1 && (root || !hasOutput)}
-            onSummarized={() => onNestedSummarized(step.data.name)}
-          />
+          <Tool key={step.data.id} depth={depth + 1} data={step.data} />
         ),
       )}
     </>

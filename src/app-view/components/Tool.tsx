@@ -1,58 +1,39 @@
-import { useArray, useEffectAsync } from "@hooks";
+import { useArray } from "@hooks";
 import { useEffect, useState } from "react";
-import { summarizeTool } from "services/summarizer";
 import type { CallData } from "streaming-agent";
 import { Line } from "./Line";
 import { Output } from "./Output";
 import { Reasoning } from "./Reasoning";
 import { type Step, Steps } from "./Steps";
-import { ToolHeader } from "./ToolHeader";
 
 interface ToolProps {
   data: CallData;
   root?: boolean;
   depth?: number;
-  isLast?: boolean;
-  onSummarized?: (summary: string) => void;
 }
 
-export function Tool({ data, root = false, depth = 0, isLast = true, onSummarized }: ToolProps) {
-  const indent = "   ".repeat(depth);
-  const parentIndent = depth > 0 ? "   ".repeat(depth - 1) : "";
-  const [summary, setSummary] = useState<string>();
+export function Tool({ data, root = false, depth = 0 }: ToolProps) {
+  const indent = "  ".repeat(depth);
+  const [outputEnded, setOutputEnded] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [output, setOutput] = useState<string>();
   const [reasoning, setReasoning] = useState<string>();
   const [isReasoning, setIsReasoning] = useState(false);
   const [reasoningDuration, setReasoningDuration] = useState<number>();
-  const [output, setOutput] = useState<string>();
-  const [outputEnded, setOutputEnded] = useState(false);
   const steps = useArray<Step>();
-  const [nestedDone, setNestedDone] = useState<Set<string>>(new Set());
 
-  const hasOutput = !!output;
-  const hasSteps = steps.length > 0;
-
-  const reasoningIsLast = !hasSteps && (root || !hasOutput);
-  const getStepPrefix = (index: number) => {
-    const isLastStep = index === steps.length - 1;
-    if (root) return isLastStep ? "└" : "├";
-    return isLastStep && !hasOutput ? "└" : "├";
-  };
-  const headerPrefix = isLast ? "└" : "├";
-
-  const { name, input } = data;
-  const inputStr = typeof input === "string" ? input : JSON.stringify(input);
+  const { name } = data;
 
   useEffect(() => {
-    if (data.outputEnded) {
-      setOutputEnded(true);
-      if (data.type === "tool" && data.outputValue) setOutput(data.outputValue);
-    }
+    if (data.outputEnded) setOutputEnded(true);
 
-    const logSub = data.log.subscribe((msg) => steps.push({ type: "log", message: msg }));
-    const outputDeltaSub = data.output.delta.subscribe((text) => setOutput((prev) => (prev ?? "") + text));
-    const outputEndedSub = data.output.ended.subscribe(() => setOutputEnded(true));
+    const subs: { unsubscribe(): void }[] = [
+      data.log.subscribe((msg) => steps.push({ type: "log", message: msg })),
+      data.output.ended.subscribe(() => setOutputEnded(true)),
+      data.error.subscribe(() => setFailed(true)),
+    ];
 
-    const subs: { unsubscribe(): void }[] = [logSub, outputDeltaSub, outputEndedSub];
+    if (root) subs.push(data.output.delta.subscribe((text) => setOutput((prev) => (prev ?? "") + text)));
 
     if (data.type === "agent") {
       let reasoningStartTime: number;
@@ -76,51 +57,35 @@ export function Tool({ data, root = false, depth = 0, isLast = true, onSummarize
     };
   }, [data]);
 
-  const nestedCalls = steps.items.filter((s) => s.type === "call");
-  const allNestedDone = nestedCalls.every((c) => nestedDone.has(c.data.name));
+  if (data.type === "tool" && data.isHidden) return null;
 
-  useEffectAsync(async () => {
-    if (!outputEnded || !allNestedDone || summary) return;
-    if (root) {
-      onSummarized?.(output ?? "");
-    } else {
-      const s = await summarizeTool(name, inputStr, output ?? "");
-      setSummary(s);
-      onSummarized?.(s);
-    }
-  }, [root, outputEnded, allNestedDone, summary]);
-
-  const reasoningPrefix = `${indent}${reasoningIsLast ? "└" : "├"} `;
-  const stepPrefix = (index: number) => `${indent}${getStepPrefix(index)} `;
-  const outputPrefix = root ? "" : `${indent}└ `;
-  const summaryPrefix = `${parentIndent}${headerPrefix} `;
-
-  if (!root && summary)
+  if (!root && outputEnded) {
+    const emoji = failed ? "🔴" : "🟢";
     return (
       <Line>
-        {summaryPrefix}
-        <b>{name}</b> 🔧: <i>{summary}</i>
+        {indent}
+        {emoji} <b>{name}</b>
       </Line>
     );
+  }
 
   return (
     <>
-      <ToolHeader name={name} input={inputStr} prefix={summaryPrefix} root={root} />
-      <Reasoning
-        prefix={reasoningPrefix}
-        reasoning={reasoning}
-        isReasoning={isReasoning}
-        durationSec={reasoningDuration}
-      />
-      <Steps
-        steps={steps.items}
-        depth={depth}
-        root={root}
-        hasOutput={hasOutput}
-        getPrefix={stepPrefix}
-        onNestedSummarized={(name) => setNestedDone((prev) => new Set(prev).add(name))}
-      />
-      {output && <Output output={output} prefix={outputPrefix} root={root} />}
+      {!root && (
+        <Line>
+          {indent}⚪ <b>{name}</b>
+        </Line>
+      )}
+      {root && (
+        <Reasoning
+          prefix={`${indent}  `}
+          reasoning={reasoning}
+          isReasoning={isReasoning}
+          durationSec={reasoningDuration}
+        />
+      )}
+      <Steps steps={steps.items} depth={root ? depth - 1 : depth} />
+      {root && output && <Output output={output} prefix={indent} root />}
     </>
   );
 }

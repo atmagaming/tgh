@@ -1,6 +1,7 @@
 import { FileAttachments, JobStatus, Tool } from "@components";
+import { EventEmitter } from "@elumixor/event-emitter";
 import { random } from "@elumixor/frontils";
-import { useEffectAsync, usePromise } from "@hooks";
+import { useEffectAsync } from "@hooks";
 import { useJob } from "@providers/JobProvider";
 import { LinkPreviewProvider } from "@providers/LinkPreviewProvider";
 import { Message } from "io/output";
@@ -12,7 +13,6 @@ import type { AgentCallData } from "streaming-agent";
 
 export function Main() {
   const job = useJob();
-  const [summarized, onSummarized] = usePromise<string>();
   const [input, setInput] = useState<string>("...");
 
   const agentData = useMemo<AgentCallData>(
@@ -25,6 +25,7 @@ export function Main() {
       output: masterAgent.output,
       log: masterAgent.log,
       call: masterAgent.call,
+      error: new EventEmitter<void>(),
     }),
     [input],
   );
@@ -51,14 +52,6 @@ export function Main() {
     }
 
     job.thinkingDuration = (Date.now() - startTime) / 1000;
-    job.state = "summarizing";
-
-    try {
-      await summarized;
-    } catch (error) {
-      logger.error({ error: error instanceof Error ? error.message : error }, "Summarization failed");
-    }
-
     job.state = "done";
   }, []);
 
@@ -66,7 +59,7 @@ export function Main() {
     <LinkPreviewProvider>
       <Message repliesTo={job.messageId}>
         <FileAttachments />
-        <Tool data={agentData} root onSummarized={onSummarized} />
+        <Tool data={agentData} root />
         <br />
         <JobStatus />
       </Message>

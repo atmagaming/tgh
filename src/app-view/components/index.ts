@@ -5,4 +5,3 @@ export * from "./Output";
 export * from "./Reasoning";
 export * from "./Steps";
 export * from "./Tool";
-export * from "./ToolHeader";

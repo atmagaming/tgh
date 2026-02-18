@@ -152,6 +152,7 @@ export class StreamingAgent {
           output: new DeltaStream(),
           log: new EventEmitter<string>(),
           call: new EventEmitter<CallData>(),
+          error: new EventEmitter(),
         };
 
         this.call.emit(callData);
@@ -174,6 +175,7 @@ export class StreamingAgent {
           if (!this._context) throw new Error("No context available for nested agent");
           return await nestedAgent.run(input, this._context);
         } catch (error) {
+          callData.error.emit();
           callData.log.emit(`Error: ${error}`);
           if (!callData.outputEnded) callData.output.ended.emit();
           throw error;
@@ -199,6 +201,8 @@ export class StreamingAgent {
           input: args as Record<string, unknown>,
           log: new EventEmitter<string>(),
           output: new DeltaStream(),
+          error: new EventEmitter(),
+          isHidden: def.isHidden,
         };
 
         this.call.emit(callData);
@@ -212,10 +216,11 @@ export class StreamingAgent {
           callData.outputEnded = true;
           callData.output.ended.emit();
           return result;
-        } catch (error) {
-          callData.log.emit(`Error: ${error}`);
+        } catch (e) {
+          callData.error.emit();
+          callData.log.emit(`Error: ${e}`);
           callData.output.ended.emit();
-          throw error;
+          throw e;
         }
       },
     });
