@@ -1,3 +1,4 @@
+import { google } from "services/google-api";
 import { defineTool } from "streaming-agent";
 import { z } from "zod";
 
@@ -8,7 +9,13 @@ export const readGoogleDocTool = defineTool(
     documentId: z.string().describe("Google Doc ID"),
   }),
   async ({ documentId }) => {
-    const response = await fetch(`https://docs.google.com/document/d/${documentId}/export?format=md`);
+    const { token } = await google.auth.getAccessToken();
+    if (!token) throw new Error("Failed to get Google access token");
+
+    const response = await fetch(`https://docs.google.com/document/d/${documentId}/export?format=md`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
     if (!response.ok) throw new Error(`Failed to export Google Doc: ${response.statusText}`);
     return await response.text();
   },
