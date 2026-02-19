@@ -13,7 +13,6 @@ import { skills } from "services/skills";
 import { systemPrompt } from "services/system-prompt";
 import { gramjsClient } from "services/telegram";
 import { transcribeAudio } from "services/transcription";
-import { notionMcpServer } from "tools/notion";
 import { isBotMentioned } from "utils";
 
 const bot = new Bot(env.TELEGRAM_BOT_TOKEN);
@@ -68,10 +67,6 @@ await new Listr(
       task: async (_, task) => {
         task.title = await systemPrompt.sync();
       },
-    },
-    {
-      title: "Start Notion MCP server",
-      task: () => notionMcpServer.connect(),
     },
   ],
   { concurrent: true, exitOnError: false },
@@ -177,7 +172,6 @@ if (env.BOT_MODE === "webhook") {
 async function shutdown(signal: string): Promise<void> {
   logger.info({ signal }, "Shutting down...");
   try {
-    await notionMcpServer.close();
     await gramjsClient.disconnect();
   } catch (error) {
     logger.error({ error: error instanceof Error ? error.message : String(error) }, "Error during shutdown");

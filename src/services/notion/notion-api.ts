@@ -9,6 +9,7 @@ const NOTION_VERSION = "2022-06-28";
 
 export class NotionAPI {
   private client: Client;
+  private titleCache = new Map<string, Promise<string>>();
 
   constructor(private apiKey: string) {
     this.client = new Client({ auth: apiKey });
@@ -49,50 +50,102 @@ export class NotionAPI {
     if (blocks.length) await this.client.blocks.children.append({ block_id: pageId, children: blocks });
   }
 
-  async getPage(pageId: string): Promise<NotionPage> {
-    const page = await this.client.pages.retrieve({ page_id: pageId });
-    if (!("properties" in page)) throw new Error("Not a full page response");
-
-    const { title, properties } = this.extractTitleAndProperties(page.properties as Record<string, unknown>);
-    return new NotionPage(page.id, title, properties, (id) => this.fetchContents(id));
-  }
-
-  async getDatabase(databaseId: string): Promise<NotionDatabase> {
-    // Fetch DB metadata
-    const db = (await this.client.databases.retrieve({ database_id: databaseId })) as {
-      id: string;
-      title?: RichTextItem[];
-      data_sources?: Array<{ id: string }>;
-    };
-    const dbName = db.title?.map((t) => t.plain_text).join("") ?? "";
-
-    // Fetch property schema from data source
-    const dataSources = db.data_sources;
-    let schema: PropertySchema[] = [];
-    if (dataSources?.[0]) {
-      const ds = await this.client.dataSources.retrieve({ data_source_id: dataSources[0].id });
-      if ("properties" in ds) {
-        schema = Object.values(ds.properties as Record<string, { name: string; type: string }>)
-          .filter((p) => p.type !== "title")
-          .map((p) => ({ name: p.name, type: p.type }));
-      }
+  buildPropertyPayload(type: string, value: string): Record<string, unknown> {
+    switch (type) {
+      case "text":
+      case "rich_text":
+        return { rich_text: [{ text: { content: value } }] };
+      case "select":
+        return { select: { name: value } };
+      case "multi_select":
+        return { multi_select: value.split(",").map((name) => ({ name: name.trim() })) };
+      case "date":
+        return { date: { start: value } };
+      case "relation":
+        return { relation: value.split(",").map((id) => ({ id: id.trim() })) };
+      case "checkbox":
+        return { checkbox: value === "true" };
+      case "number":
+        return { number: Number(value) };
+      case "url":
+        return { url: value };
+      case "email":
+        return { email: value };
+      case "phone":
+      case "phone_number":
+        return { phone_number: value };
+      case "status":
+        return { status: { name: value } };
+      default:
+        throw new Error(`Unsupported property type for update: ${type}`);
     }
-
-    // Query all pages (metadata only)
-    const allPages = await this.queryAllPages(databaseId);
-
-    return new NotionDatabase(db.id, dbName, schema, allPages.length, allPages, (id) => this.fetchContents(id));
   }
 
-  private async queryAllPages(
+  markdownToBlocks(markdown: string): BlockObjectRequest[] {
+    return markdown
+      .split("\n")
+      .filter((line) => line.trim().length > 0)
+      .map((line): BlockObjectRequest => {
+        if (line.startsWith("# "))
+          return { type: "heading_1", heading_1: { rich_text: [{ type: "text", text: { content: line.slice(2) } }] } };
+        if (line.startsWith("## "))
+          return { type: "heading_2", heading_2: { rich_text: [{ type: "text", text: { content: line.slice(3) } }] } };
+        if (line.startsWith("### "))
+          return { type: "heading_3", heading_3: { rich_text: [{ type: "text", text: { content: line.slice(4) } }] } };
+        if (line.startsWith("- "))
+          return {
+            type: "bulleted_list_item",
+            bulleted_list_item: { rich_text: [{ type: "text", text: { content: line.slice(2) } }] },
+          };
+        return { type: "paragraph", paragraph: { rich_text: [{ type: "text", text: { content: line } }] } };
+      });
+  }
+
+  async searchPages(
+    query: string | null,
+    filter: "page" | "database" | null,
+  ): Promise<Array<{ id: string; title: string; object: string }>> {
+    const body: Record<string, unknown> = {};
+    if (query) body.query = query;
+    if (filter) body.filter = { value: filter, property: "object" };
+
+    const response = (await fetch("https://api.notion.com/v1/search", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.apiKey}`,
+        "Notion-Version": NOTION_VERSION,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    }).then((r) => r.json())) as {
+      results: Array<{ id: string; object: string; properties?: Record<string, unknown>; title?: RichTextItem[] }>;
+    };
+
+    return response.results.map((item) => {
+      let title = "";
+      if (item.object === "page" && item.properties) title = this.extractTitleAndProperties(item.properties).title;
+      else if (item.object === "database" && item.title) title = item.title.map((t) => t.plain_text).join("");
+      return { id: item.id, title, object: item.object };
+    });
+  }
+
+  async queryDatabase(
     databaseId: string,
-  ): Promise<Array<{ id: string; title: string; properties: Record<string, NotionProperty> }>> {
-    const pages: Array<{ id: string; title: string; properties: Record<string, NotionProperty> }> = [];
+    options: {
+      filter?: Record<string, unknown>;
+      sorts?: Array<{ property: string; direction: "ascending" | "descending" }>;
+      limit?: number;
+    } = {},
+  ): Promise<NotionPage[]> {
+    const pages: NotionPage[] = [];
     let cursor: string | null = null;
+    const pageLimit = options.limit ?? Number.POSITIVE_INFINITY;
 
     do {
-      const body: Record<string, unknown> = { page_size: 100 };
+      const body: Record<string, unknown> = { page_size: Math.min(100, pageLimit - pages.length) };
       if (cursor) body.start_cursor = cursor;
+      if (options.filter) body.filter = options.filter;
+      if (options.sorts) body.sorts = options.sorts;
 
       const response = (await fetch(`https://api.notion.com/v1/databases/${databaseId}/query`, {
         method: "POST",
@@ -110,13 +163,59 @@ export class NotionAPI {
 
       for (const page of response.results) {
         const { title, properties } = this.extractTitleAndProperties(page.properties);
-        pages.push({ id: page.id, title, properties });
+        pages.push(new NotionPage(page.id, title, properties, (id) => this.fetchContents(id)));
       }
 
-      cursor = response.has_more ? response.next_cursor : null;
+      cursor = response.has_more && pages.length < pageLimit ? response.next_cursor : null;
     } while (cursor);
 
     return pages;
+  }
+
+  getPageTitle(id: string): Promise<string> {
+    const cached = this.titleCache.get(id);
+    if (cached !== undefined) return cached;
+    const promise = this.getPage(id).then((page) => page.title);
+    this.titleCache.set(id, promise);
+    return promise;
+  }
+
+  async resolveRelationContent(content: string): Promise<string> {
+    const ids = content.split(", ").filter(Boolean);
+    if (!ids.length) return content;
+    const resolved = await Promise.all(ids.map(async (id) => `${await this.getPageTitle(id)} (${id})`));
+    return resolved.join(", ");
+  }
+
+  async getPage(pageId: string): Promise<NotionPage> {
+    const page = await this.client.pages.retrieve({ page_id: pageId });
+    if (!("properties" in page)) throw new Error("Not a full page response");
+
+    const { title, properties } = this.extractTitleAndProperties(page.properties as Record<string, unknown>);
+    return new NotionPage(page.id, title, properties, (id) => this.fetchContents(id));
+  }
+
+  async getDatabase(databaseId: string): Promise<NotionDatabase> {
+    const db = (await this.client.databases.retrieve({ database_id: databaseId })) as {
+      id: string;
+      title?: RichTextItem[];
+      data_sources?: Array<{ id: string }>;
+    };
+    const dbName = db.title?.map((t) => t.plain_text).join("") ?? "";
+
+    const dataSources = db.data_sources;
+    let schema: PropertySchema[] = [];
+    if (dataSources?.[0]) {
+      const ds = await this.client.dataSources.retrieve({ data_source_id: dataSources[0].id });
+      if ("properties" in ds) {
+        schema = Object.values(ds.properties as Record<string, { name: string; type: string }>)
+          .filter((p) => p.type !== "title")
+          .map((p) => ({ name: p.name, type: p.type }));
+      }
+    }
+
+    const allPages = await this.queryDatabase(databaseId);
+    return new NotionDatabase(db.id, dbName, schema, allPages.length, allPages);
   }
 
   private extractTitleAndProperties(raw: Record<string, unknown>): {
@@ -174,6 +273,10 @@ export class NotionAPI {
           content: items?.map((i) => i.id).join(", ") ?? "",
           relatedDatabaseId: (prop as { relation_database_id?: string }).relation_database_id,
         };
+      }
+      case "status": {
+        const status = prop.status as { name: string } | null;
+        return { type: "status", content: status?.name ?? "" };
       }
       case "people": {
         const items = prop.people as Array<{ name?: string; id: string }> | undefined;

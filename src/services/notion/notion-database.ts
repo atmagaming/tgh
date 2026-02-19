@@ -1,6 +1,6 @@
 import { escapeXML } from "./notion-api";
-import { NotionPage } from "./notion-page";
-import type { NotionProperty, PropertySchema } from "./types";
+import type { NotionPage } from "./notion-page";
+import type { PropertySchema } from "./types";
 
 export class NotionDatabase {
   constructor(
@@ -8,14 +8,11 @@ export class NotionDatabase {
     readonly name: string,
     readonly properties: PropertySchema[],
     readonly totalEntries: number,
-    private pageEntries: Array<{ id: string; title: string; properties: Record<string, NotionProperty> }>,
-    private fetchContentsFn: (blockId: string) => Promise<string>,
+    private pageEntries: NotionPage[],
   ) {}
 
   getPages(offset = 0, limit = 100): NotionPage[] {
-    return this.pageEntries
-      .slice(offset, offset + limit)
-      .map((e) => new NotionPage(e.id, e.title, e.properties, this.fetchContentsFn));
+    return this.pageEntries.slice(offset, offset + limit);
   }
 
   toXML(): string {

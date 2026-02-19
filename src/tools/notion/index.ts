@@ -1,1 +1,1 @@
-export { notionAgent, notionMcpServer } from "./notion-agent";
+export { notionAgent } from "./notion-agent";
