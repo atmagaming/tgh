@@ -12,8 +12,8 @@ import { updateMemoriesTool } from "tools/core/update-memories";
 import { driveAgent } from "tools/drive";
 import { emailAgent } from "tools/email";
 import { imageAgent } from "tools/image/image-agent";
-import { explainTool } from "tools/image/tools/explain";
 import { notionAgent } from "tools/notion";
+import { projectManagementAgent } from "tools/project-management";
 import { wiseAgent } from "tools/wise";
 
 export const masterAgent = new StreamingAgent({
@@ -37,9 +37,14 @@ export const masterAgent = new StreamingAgent({
   tools: [
     ...coreTools,
     {
+      agent: projectManagementAgent,
+      description:
+        "Manage project tasks: create, edit, delete, query tasks, assign people. Use for anything related to project management, task tracking, or work assignments.",
+    },
+    {
       agent: notionAgent,
       description:
-        "Manages requests related to Notion. Accepts a general instruction in a natural language with required ids/links/names. Use it to delegate any Notion/notion related requests",
+        "Manage Notion pages, databases, and people profiles. Use for general Notion operations (not task management).",
     },
     {
       agent: driveAgent,
@@ -70,7 +75,6 @@ export const masterAgent = new StreamingAgent({
     // },
     webSearchTool,
     // getAPIBalancesTool,
-    explainTool,
     { agent: imageAgent, description: "Generate, edit, analyze images, or create 3D models from images" },
   ],
 });

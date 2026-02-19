@@ -3,4 +3,3 @@ export { findPagesTool } from "./find-pages";
 export { getNotionPageTool } from "./get-notion-page";
 export { getPeopleTool } from "./get-people";
 export { getPersonTool } from "./get-person";
-export { getTasksTool } from "./get-tasks";

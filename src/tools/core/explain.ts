@@ -5,7 +5,7 @@ import { z } from "zod";
 
 export const explainTool = defineTool(
   "Explain",
-  "Explain images or documents (PDFs, etc.) using Gemini vision. Accepts local file paths (from DownloadAttachment). Optionally saves the explanation to the database if sourceMessageId is provided.",
+  "Explain images or documents (PDFs, etc.) using Gemini vision. Optionally saves the explanation to the database.",
   z.object({
     files: z.array(z.string()).min(1).describe("Local file paths to analyze (from DownloadAttachment results)"),
     question: z

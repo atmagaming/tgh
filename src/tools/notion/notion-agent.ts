@@ -1,12 +1,12 @@
 import { models } from "models";
 import { StreamingAgent } from "streaming-agent";
-import { editPageTool, findPagesTool, getNotionPageTool, getPeopleTool, getPersonTool, getTasksTool } from "./tools";
+import { editPageTool, findPagesTool, getNotionPageTool, getPeopleTool, getPersonTool } from "./tools";
 
-const NOTION_AGENT_PROMPT = `You manage Notion pages and databases for TGH.
+const NOTION_AGENT_PROMPT =
+  `You manage Notion pages and databases for TGH (excluding tasks — those are handled by ProjectManagementAgent).
 
 Available databases (via tools):
 - People: Team member profiles — use GetPeople / GetPerson
-- Tasks: Project tasks — use GetTasks
 
 General tools: GetNotionPage, FindPages, EditPage
 
@@ -22,5 +22,5 @@ export const notionAgent = new StreamingAgent({
   name: "NotionAgent",
   model: models.nano,
   instructions: NOTION_AGENT_PROMPT,
-  tools: [getNotionPageTool, findPagesTool, editPageTool, getTasksTool, getPersonTool, getPeopleTool],
+  tools: [getNotionPageTool, findPagesTool, editPageTool, getPersonTool, getPeopleTool],
 });

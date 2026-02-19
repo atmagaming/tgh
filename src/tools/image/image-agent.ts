@@ -1,21 +1,20 @@
 import { models } from "models";
 import { StreamingAgent } from "streaming-agent";
-import { analyzeImageTool } from "./tools/analyze-image";
-import { explainTool } from "./tools/explain";
-import { generate3DFromImageTool } from "./tools/generate-3d-from-image";
-import { generateImageTool } from "./tools/generate-image";
+import { explainTool } from "../core";
+import { analyzeImageTool, generate3DFromImageTool, generateImageTool } from "./tools";
 
 const IMAGE_AGENT_PROMPT = `You handle visual content operations.
 
-Workflow for message attachments:
-1. Use DownloadAttachment to get local file paths from message attachment IDs
-2. Pass those paths to the appropriate tool
+When generating or editing images:
+- Write detailed narrative prompts with explicit intent (new image vs edit)
+- Label reference images as "Image 1", "Image 2", etc.
+- Be specific about pose, style, lighting, composition, and mood
+- For edits, specify what changes and what stays the same
 
-Reference images support reference_images[] for style/consistency. First image is primary style reference.
-
-Parameter Inference:
-- Aspect ratios: square/icon→1:1, landscape→16:9, portrait→9:16
-- Variations/options → numberOfImages=2-3
+When analyzing images:
+- Formulate clear analysis instructions referencing images by label
+- Specify the type of analysis: describe, identify, compare, explain, or evaluate
+- Ground conclusions in visible evidence
 
 Focus on visual result, minimal explanation.`;
 
