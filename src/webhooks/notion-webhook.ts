@@ -1,12 +1,15 @@
 import type { Bot } from "grammy";
 import { env } from "env";
 import { logger } from "logger";
+import { notion } from "services/notion";
+
+type Property = { type: string; [key: string]: unknown };
 
 interface RichTextItem {
   plain_text: string;
 }
 
-function extractTitle(properties: Record<string, { type: string; [key: string]: unknown }>): string {
+function extractTitle(properties: Record<string, Property>): string {
   for (const prop of Object.values(properties)) {
     if (prop.type === "title") {
       const items = prop.title as RichTextItem[] | undefined;
@@ -16,17 +19,19 @@ function extractTitle(properties: Record<string, { type: string; [key: string]: 
   return "Untitled";
 }
 
-function extractSelect(prop: { type: string; [key: string]: unknown } | undefined): string {
+function extractSelect(prop: Property | undefined): string {
   if (!prop) return "";
   if (prop.type === "select") return (prop.select as { name: string } | null)?.name ?? "";
   if (prop.type === "status") return (prop.status as { name: string } | null)?.name ?? "";
   return "";
 }
 
-function extractPeople(prop: { type: string; [key: string]: unknown } | undefined): string {
-  if (!prop || prop.type !== "people") return "";
-  const items = prop.people as Array<{ name?: string; id: string }> | undefined;
-  return items?.map((p) => p.name ?? p.id).join(", ") ?? "";
+async function extractRelationNames(prop: Property | undefined): Promise<string> {
+  if (!prop || prop.type !== "relation") return "";
+  const items = prop.relation as Array<{ id: string }> | undefined;
+  if (!items?.length) return "";
+  const names = await Promise.all(items.map((r) => notion.getPageTitle(r.id)));
+  return names.join(", ");
 }
 
 export async function handleNotionWebhook(bot: Bot, req: Request): Promise<Response> {
@@ -47,8 +52,8 @@ export async function handleNotionWebhook(bot: Bot, req: Request): Promise<Respo
 
   logger.info({ body }, "Notion webhook received");
 
-  // Notion automation "Send webhook" sends page data with properties
-  const data = body as { data?: { properties?: Record<string, { type: string; [key: string]: unknown }> } };
+  // Notion automation "Send webhook" sends { source, data: { properties, ... } }
+  const data = body as { data?: { properties?: Record<string, Property> } };
   const properties = data?.data?.properties;
   if (!properties) {
     logger.warn({ body }, "No properties found in webhook payload");
@@ -57,8 +62,10 @@ export async function handleNotionWebhook(bot: Bot, req: Request): Promise<Respo
 
   const title = extractTitle(properties);
   const status = extractSelect(properties["Status"]);
-  const reviewer = extractPeople(properties["Reviewer"]);
-  const developer = extractPeople(properties["Developer"]);
+  const [reviewer, developer] = await Promise.all([
+    extractRelationNames(properties["Reviewer"]),
+    extractRelationNames(properties["Developer"]),
+  ]);
 
   if (!status) {
     logger.info("No status in webhook payload, skipping notification");
@@ -72,7 +79,7 @@ export async function handleNotionWebhook(bot: Bot, req: Request): Promise<Respo
 
   try {
     await bot.api.sendMessage(env.TELEGRAM_TEAM_GROUP_ID, message, { parse_mode: "HTML" });
-    logger.info({ title, status }, "Notion webhook notification sent");
+    logger.info({ title, status, reviewer, developer }, "Notion webhook notification sent");
   } catch (error) {
     logger.error({ error: error instanceof Error ? error.message : String(error) }, "Failed to send notification");
     return new Response("Failed to send notification", { status: 500 });
