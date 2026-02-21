@@ -128,9 +128,12 @@ export async function handleNotionWebhook(bot: Bot, req: Request): Promise<Respo
     return new Response("OK", { status: 200 });
   }
 
-  // Determine responsible person: Reviewer for review statuses, Developer otherwise
-  const isReview = status.toLowerCase().includes("review");
-  const responsibleProp = isReview ? properties["Reviewer"] : properties["Developer"];
+  // Determine responsible person based on status
+  const statusLower = status.toLowerCase();
+  let responsibleProp: Property | undefined;
+  if (statusLower.includes("review")) responsibleProp = properties.Reviewer;
+  else if (statusLower.includes("qa")) responsibleProp = properties.QA;
+  else responsibleProp = properties.Developer;
   const responsibleMention = await resolvePersonMentions(responsibleProp);
 
   // Build task link
@@ -140,16 +143,18 @@ export async function handleNotionWebhook(bot: Bot, req: Request): Promise<Respo
   // Resolve parent task
   const parentIds = extractRelationIds(properties["Parent item"]);
   let parentPart = "";
-  if (parentIds.length) {
-    const parentTitle = await notion.getPageTitle(parentIds[0]);
-    const parentUrl = notionPageUrl(parentIds[0]);
+  const firstParentId = parentIds[0];
+  if (firstParentId) {
+    const parentTitle = await notion.getPageTitle(firstParentId);
+    const parentUrl = notionPageUrl(firstParentId);
     parentPart = ` (subtask of <a href="${parentUrl}">${parentTitle}</a>)`;
   }
 
+  const needsAction = statusLower.includes("review") || statusLower.includes("qa");
   const parts: string[] = [];
   if (responsibleMention) parts.push(`${responsibleMention} —`);
   parts.push(`task ${taskLink}${parentPart} was set to <b>${status}</b>.`);
-  if (isReview) parts.push("Please check it as soon as possible \u{1F64F}");
+  if (needsAction) parts.push("Please check it as soon as possible \u{1F64F}");
 
   const message = parts.join(" ");
 
