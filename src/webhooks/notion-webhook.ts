@@ -1,5 +1,5 @@
-import type { Bot } from "grammy";
 import { env } from "env";
+import type { Bot } from "grammy";
 import { logger } from "logger";
 import { notion } from "services/notion";
 import { gramjsClient } from "services/telegram";
@@ -133,18 +133,12 @@ export async function handleNotionWebhook(bot: Bot, req: Request): Promise<Respo
   let responsibleProp: Property | undefined;
   let suffix = "";
 
-  if (statusLower.includes("ready for review")) {
-    responsibleProp = properties.Reviewer;
-    suffix = "Please check it as soon as possible \u{1F64F}";
-  } else if (statusLower.includes("ready for test")) {
-    responsibleProp = properties.QA;
-    suffix = "Please check it as soon as possible \u{1F64F}";
-  } else if (statusLower === "done") {
-    responsibleProp = properties.Developer;
-    suffix = "\u{1F389}";
-  } else {
-    responsibleProp = properties.Developer;
-  }
+  if (statusLower.includes("ready for review")) responsibleProp = properties.Reviewer;
+  else if (statusLower.includes("ready for test")) responsibleProp = properties.QA;
+  else responsibleProp = properties.Developer;
+
+  const isDone = statusLower === "done";
+  suffix = isDone ? "\u{1F389}" : "Please check it as soon as possible \u{1F64F}";
 
   const responsibleMention = await resolvePersonMentions(responsibleProp);
 
