@@ -49,6 +49,9 @@ const envSchema = z
     // Wise
     WISE_API_TOKEN: z.string().min(1, "WISE_API_TOKEN is required"),
 
+    // Notion Webhook
+    NOTION_WEBHOOK_SECRET: z.string().optional(),
+
     // Database
     DB_PATH: z.string().optional(),
 

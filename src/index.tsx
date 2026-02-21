@@ -14,6 +14,7 @@ import { systemPrompt } from "services/system-prompt";
 import { gramjsClient } from "services/telegram";
 import { transcribeAudio } from "services/transcription";
 import { isBotMentioned } from "utils";
+import { handleNotionWebhook } from "webhooks/notion-webhook";
 
 const bot = new Bot(env.TELEGRAM_BOT_TOKEN);
 const { id: botChatId, username: botUsername = "", first_name: botName } = await bot.api.getMe();
@@ -157,6 +158,9 @@ if (env.BOT_MODE === "webhook") {
 
       // Telegram webhook
       if (url.pathname === "/webhook" && handleWebhook) return await handleWebhook(req);
+
+      // Notion webhook
+      if (url.pathname === "/notion-webhook") return await handleNotionWebhook(bot, req);
 
       // Health check
       if (url.pathname === "/") return new Response("Bot is running!", { status: 200 });

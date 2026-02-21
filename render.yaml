@@ -1,18 +1,16 @@
 services:
   - type: web
-    name: tgh-bot
+    name: tgh
     runtime: docker
-    repo: https://github.com/elumixor/tgh
+    repo: https://github.com/atmagaming/tgh
     branch: main
     dockerfilePath: ./Dockerfile
     envVars:
       - key: TELEGRAM_BOT_TOKEN
         sync: false
-      - key: ANTHROPIC_API_KEY
+      - key: OPENAI_API_KEY
         sync: false
       - key: GEMINI_API_KEY
-        sync: false
-      - key: OPENAI_API_KEY
         sync: false
       - key: MESHY_API_KEY
         sync: false
@@ -20,7 +18,21 @@ services:
         sync: false
       - key: NOTION_API_KEY
         sync: false
-      - key: NOTION_DATABASE_ID
+      - key: NOTION_MEMORIES_PAGE_ID
+        sync: false
+      - key: NOTION_PEOPLE_DB_ID
+        sync: false
+      - key: NOTION_ROLES_DB_ID
+        sync: false
+      - key: NOTION_SENSITIVE_DATA_DB_ID
+        sync: false
+      - key: NOTION_TASKS_DB_ID
+        sync: false
+      - key: NOTION_HYPOCRISY_DB_ID
+        sync: false
+      - key: NOTION_SKILLS_DB_ID
+        sync: false
+      - key: NOTION_SYSTEM_PROMPT_PAGE_ID
         sync: false
       - key: TELEGRAM_API_ID
         sync: false
@@ -30,9 +42,35 @@ services:
         sync: false
       - key: TELEGRAM_PHONE_NUMBER
         sync: false
+      - key: TELEGRAM_TEAM_GROUP_ID
+        sync: false
+      - key: TELEGRAM_TEAM_INVITE_LINK
+        sync: false
       - key: ALLOWED_USER_ID
         sync: false
-      - key: ALLOWED_CHAT_ID
+      - key: GROUP_CHAT_ID
+        sync: false
+      - key: BOT_MODE
+        value: webhook
+      - key: PORT
+        value: "10000"
+      - key: BASE_URL
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REFRESH_TOKEN
+        sync: false
+      - key: GOOGLE_DRIVE_NDA_TEMPLATE_ID
+        sync: false
+      - key: GOOGLE_DRIVE_AGREEMENTS_FOLDER_ID
+        sync: false
+      - key: DIGISIGNER_API_KEY
+        sync: false
+      - key: WISE_API_TOKEN
+        sync: false
+      - key: NOTION_WEBHOOK_SECRET
         sync: false
       - key: DB_PATH
         value: /var/data/db.sqlite
@@ -40,4 +78,4 @@ services:
       name: data
       mountPath: /var/data
       sizeGB: 1
-    plan: free
+    plan: starter
