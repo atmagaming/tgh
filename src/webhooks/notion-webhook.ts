@@ -2,11 +2,51 @@ import type { Bot } from "grammy";
 import { env } from "env";
 import { logger } from "logger";
 import { notion } from "services/notion";
+import { gramjsClient } from "services/telegram";
 
 type Property = { type: string; [key: string]: unknown };
 
 interface RichTextItem {
   plain_text: string;
+}
+
+interface TelegramPerson {
+  name: string;
+  telegramId: number | null;
+}
+
+// Notion person ID → Telegram info
+const peopleMap = new Map<string, TelegramPerson>();
+
+export async function initPeopleMap(): Promise<string> {
+  const [people, chatInfo] = await Promise.all([
+    notion.queryDatabase(env.NOTION_PEOPLE_DB_ID, {
+      filter: { property: "Status", select: { equals: "Active" } },
+    }),
+    gramjsClient.getChatInfo(env.TELEGRAM_TEAM_GROUP_ID),
+  ]);
+
+  // Build username → telegram ID lookup from group participants
+  const usernameToId = new Map<string, number>();
+  for (const p of chatInfo.participants) {
+    if (p.username) usernameToId.set(p.username.toLowerCase(), p.id);
+  }
+
+  for (const person of people) {
+    const telegramContact = person.properties["Telegram / Contact"]?.content ?? "";
+    let telegramId: number | null = null;
+
+    if (telegramContact.startsWith("@")) {
+      const username = telegramContact.slice(1).toLowerCase();
+      telegramId = usernameToId.get(username) ?? null;
+    } else if (/^\d+$/.test(telegramContact)) {
+      telegramId = Number(telegramContact);
+    }
+
+    peopleMap.set(person.id, { name: person.title, telegramId });
+  }
+
+  return `People map: ${peopleMap.size} people, ${[...peopleMap.values()].filter((p) => p.telegramId).length} with Telegram`;
 }
 
 function extractTitle(properties: Record<string, Property>): string {
@@ -26,18 +66,38 @@ function extractSelect(prop: Property | undefined): string {
   return "";
 }
 
-async function extractRelationNames(prop: Property | undefined): Promise<string> {
-  if (!prop || prop.type !== "relation") return "";
+function extractRelationIds(prop: Property | undefined): string[] {
+  if (!prop || prop.type !== "relation") return [];
   const items = prop.relation as Array<{ id: string }> | undefined;
-  if (!items?.length) return "";
-  const names = await Promise.all(items.map((r) => notion.getPageTitle(r.id)));
-  return names.join(", ");
+  return items?.map((r) => r.id) ?? [];
+}
+
+function mentionPerson(person: TelegramPerson): string {
+  if (person.telegramId) return `<a href="tg://user?id=${person.telegramId}">${person.name}</a>`;
+  return person.name;
+}
+
+function notionPageUrl(pageId: string): string {
+  return `https://www.notion.so/${pageId.replace(/-/g, "")}`;
+}
+
+async function resolvePersonMentions(prop: Property | undefined): Promise<string> {
+  const ids = extractRelationIds(prop);
+  if (!ids.length) return "";
+  const mentions = await Promise.all(
+    ids.map(async (id) => {
+      const person = peopleMap.get(id);
+      if (person) return mentionPerson(person);
+      const name = await notion.getPageTitle(id);
+      return name;
+    }),
+  );
+  return mentions.join(", ");
 }
 
 export async function handleNotionWebhook(bot: Bot, req: Request): Promise<Response> {
   if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
 
-  // Validate webhook secret if configured
   if (env.NOTION_WEBHOOK_SECRET) {
     const auth = req.headers.get("Authorization");
     if (auth !== `Bearer ${env.NOTION_WEBHOOK_SECRET}`) return new Response("Unauthorized", { status: 401 });
@@ -52,34 +112,53 @@ export async function handleNotionWebhook(bot: Bot, req: Request): Promise<Respo
 
   logger.info({ body }, "Notion webhook received");
 
-  // Notion automation "Send webhook" sends { source, data: { properties, ... } }
-  const data = body as { data?: { properties?: Record<string, Property> } };
-  const properties = data?.data?.properties;
+  const payload = body as { data?: { id?: string; properties?: Record<string, Property>; url?: string } };
+  const properties = payload?.data?.properties;
   if (!properties) {
     logger.warn({ body }, "No properties found in webhook payload");
     return new Response("OK", { status: 200 });
   }
 
+  const pageId = payload.data?.id ?? "";
   const title = extractTitle(properties);
   const status = extractSelect(properties["Status"]);
-  const [reviewer, developer] = await Promise.all([
-    extractRelationNames(properties["Reviewer"]),
-    extractRelationNames(properties["Developer"]),
-  ]);
 
   if (!status) {
     logger.info("No status in webhook payload, skipping notification");
     return new Response("OK", { status: 200 });
   }
 
-  const parts = [`<b>${title}</b> is now <b>${status}</b>`];
-  if (reviewer) parts.push(`Reviewer: ${reviewer}`);
-  if (developer) parts.push(`Developer: ${developer}`);
-  const message = parts.join("\n");
+  // Determine responsible person: Reviewer for review statuses, Developer otherwise
+  const isReview = status.toLowerCase().includes("review");
+  const responsibleProp = isReview ? properties["Reviewer"] : properties["Developer"];
+  const responsibleMention = await resolvePersonMentions(responsibleProp);
+
+  // Build task link
+  const taskUrl = payload.data?.url ?? notionPageUrl(pageId);
+  const taskLink = `<a href="${taskUrl}">${title}</a>`;
+
+  // Resolve parent task
+  const parentIds = extractRelationIds(properties["Parent item"]);
+  let parentPart = "";
+  if (parentIds.length) {
+    const parentTitle = await notion.getPageTitle(parentIds[0]);
+    const parentUrl = notionPageUrl(parentIds[0]);
+    parentPart = ` (subtask of <a href="${parentUrl}">${parentTitle}</a>)`;
+  }
+
+  const parts: string[] = [];
+  if (responsibleMention) parts.push(`${responsibleMention} —`);
+  parts.push(`task ${taskLink}${parentPart} was set to <b>${status}</b>.`);
+  if (isReview) parts.push("Please check it as soon as possible \u{1F64F}");
+
+  const message = parts.join(" ");
 
   try {
-    await bot.api.sendMessage(env.TELEGRAM_TEAM_GROUP_ID, message, { parse_mode: "HTML" });
-    logger.info({ title, status, reviewer, developer }, "Notion webhook notification sent");
+    await bot.api.sendMessage(env.TELEGRAM_TEAM_GROUP_ID, message, {
+      parse_mode: "HTML",
+      link_preview_options: { is_disabled: true },
+    });
+    logger.info({ title, status, responsibleMention }, "Notion webhook notification sent");
   } catch (error) {
     logger.error({ error: error instanceof Error ? error.message : String(error) }, "Failed to send notification");
     return new Response("Failed to send notification", { status: 500 });

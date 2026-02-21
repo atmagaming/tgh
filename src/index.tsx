@@ -14,7 +14,7 @@ import { systemPrompt } from "services/system-prompt";
 import { gramjsClient } from "services/telegram";
 import { transcribeAudio } from "services/transcription";
 import { isBotMentioned } from "utils";
-import { handleNotionWebhook } from "webhooks/notion-webhook";
+import { handleNotionWebhook, initPeopleMap } from "webhooks/notion-webhook";
 
 const bot = new Bot(env.TELEGRAM_BOT_TOKEN);
 const { id: botChatId, username: botUsername = "", first_name: botName } = await bot.api.getMe();
@@ -45,6 +45,12 @@ await new Listr(
               title: "Pre-fetch chat info",
               task: async (_, sub) => {
                 sub.title = await gramjsClient.prefetchDefaultChat();
+              },
+            },
+            {
+              title: "Map people to Telegram",
+              task: async (_, sub) => {
+                sub.title = await initPeopleMap();
               },
             },
           ],
