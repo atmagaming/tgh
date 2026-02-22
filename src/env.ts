@@ -4,6 +4,7 @@ const envSchema = z
   .object({
     TELEGRAM_BOT_TOKEN: z.string().min(1, "TELEGRAM_BOT_TOKEN is required"),
     ALLOWED_USER_ID: z.coerce.number(),
+    SECONDARY_USER_ID: z.coerce.number().optional(),
     GROUP_CHAT_ID: z.coerce.number(),
 
     BOT_MODE: z.enum(["polling", "webhook"]).default("polling"),

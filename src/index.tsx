@@ -109,7 +109,7 @@ bot.on("message", async (ctx) => {
   if (ctx.chat?.type === "group" || ctx.chat?.type === "supergroup") {
     if (ctx.chat?.id !== env.GROUP_CHAT_ID) return;
     if (!isBotMentioned(ctx.message, botUsername)) return;
-  } else if (ctx.from?.id !== env.ALLOWED_USER_ID) return;
+  } else if (ctx.from?.id !== env.ALLOWED_USER_ID && ctx.from?.id !== env.SECONDARY_USER_ID) return;
 
   // Immediately react with 👀 to acknowledge the message
   await ctx.react("👀").catch((error) => {
